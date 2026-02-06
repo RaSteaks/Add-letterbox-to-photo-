@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>遮幅器 | Letterbox Lab</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="ambient"></div>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Letterbox Lab</p>
+        <h1>导入照片，裁切并添加电影遮幅</h1>
+        <p class="sub">在浏览器中完成裁切、比例调整与遮幅导出，保持原图尺寸输出。</p>
+      </div>
+      <div class="ratio-badge">
+        <span>常用遮幅</span>
+        <strong>2.39:1</strong>
+      </div>
+    </header>
+
+    <section class="workspace">
+      <div class="panel controls">
+        <div class="block">
+          <h2>导入</h2>
+          <div id="dropzone" class="dropzone">
+            <input id="fileInput" type="file" accept="image/*" />
+            <div>
+              <p>拖拽图片到这里</p>
+              <span>或点击选择文件</span>
+            </div>
+          </div>
+          <div class="meta" id="fileMeta">尚未选择图片</div>
+        </div>
+
+        <div class="block">
+          <h2>裁切</h2>
+          <label class="field toggle">
+            <span>是否裁切</span>
+            <input id="cropToggle" type="checkbox" checked />
+          </label>
+          <label class="field">
+            <span>裁切比例</span>
+            <select id="cropSelect">
+              <option value="free">自由</option>
+              <option value="1">1:1</option>
+              <option value="4:3">4:3</option>
+              <option value="16:9">16:9</option>
+              <option value="2.39">2.39:1</option>
+            </select>
+          </label>
+          <div class="actions">
+            <button id="applyCrop" class="secondary" disabled>应用裁切</button>
+            <button id="resetCrop" class="secondary" disabled>重置裁切</button>
+          </div>
+          <div class="meta" id="cropMeta">等待图片</div>
+        </div>
+
+        <div class="block">
+          <h2>遮幅比例</h2>
+          <label class="field">
+            <span>目标比例</span>
+            <select id="ratioSelect">
+              <option value="2.39">2.39:1 (CinemaScope)</option>
+              <option value="2.35">2.35:1</option>
+              <option value="2.00">2.00:1 (Univisium)</option>
+              <option value="1.85">1.85:1</option>
+              <option value="1.78">1.78:1 (16:9)</option>
+              <option value="custom">自定义</option>
+            </select>
+          </label>
+          <div id="customRatio" class="field row hidden">
+            <label>
+              <span>宽</span>
+              <input id="customW" type="number" min="0.1" step="0.01" value="2.39" />
+            </label>
+            <label>
+              <span>高</span>
+              <input id="customH" type="number" min="0.1" step="0.01" value="1" />
+            </label>
+          </div>
+          <div class="meta" id="ratioMeta">等待图片</div>
+        </div>
+
+        <div class="block">
+          <h2>样式</h2>
+          <label class="field">
+            <span>图片上下偏移</span>
+            <input id="imageOffset" type="range" min="-50" max="50" value="0" />
+          </label>
+          <div class="meta" id="offsetMeta">偏移 0%</div>
+          <label class="field">
+            <span>遮幅颜色</span>
+            <input id="barColor" type="color" value="#0b0b0b" />
+          </label>
+          <label class="field">
+            <span>不透明度</span>
+            <input id="barOpacity" type="range" min="0" max="100" value="100" />
+          </label>
+          <div class="meta" id="styleMeta">不透明度 100%</div>
+        </div>
+
+        <div class="block">
+          <h2>水印</h2>
+          <label class="field toggle">
+            <span>增加水印</span>
+            <input id="watermarkToggle" type="checkbox" />
+          </label>
+          <label class="field">
+            <span>PNG 水印</span>
+            <input id="watermarkInput" type="file" accept="image/png" />
+          </label>
+          <div class="meta" id="watermarkMeta">未选择水印</div>
+          <div class="field range">
+            <span>水平偏移 (%)</span>
+            <div class="range-group">
+              <input id="wmXRange" type="range" min="-50" max="50" value="0" />
+              <input id="wmXInput" type="number" min="-50" max="50" value="0" />
+            </div>
+          </div>
+          <div class="field range">
+            <span>垂直偏移 (%)</span>
+            <div class="range-group">
+              <input id="wmYRange" type="range" min="-50" max="50" value="0" />
+              <input id="wmYInput" type="number" min="-50" max="50" value="0" />
+            </div>
+          </div>
+          <div class="field range">
+            <span>缩放 (%)</span>
+            <div class="range-group">
+              <input id="wmScaleRange" type="range" min="10" max="300" value="100" />
+              <input id="wmScaleInput" type="number" min="10" max="300" value="100" />
+            </div>
+          </div>
+          <div class="field range">
+            <span>不透明度 (%)</span>
+            <div class="range-group">
+              <input id="wmOpacityRange" type="range" min="0" max="100" value="80" />
+              <input id="wmOpacityInput" type="number" min="0" max="100" value="80" />
+            </div>
+          </div>
+        </div>
+
+        <div class="block">
+          <h2>导出</h2>
+          <button id="downloadBtn" class="primary" disabled>下载 PNG</button>
+          <div class="meta">导出尺寸与当前图像一致，遮幅为覆盖效果。</div>
+        </div>
+      </div>
+
+      <div class="panel preview">
+        <div class="preview-header">
+          <h2>预览</h2>
+          <div class="chip" id="barInfo">未加载</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="canvas"></canvas>
+          <div class="placeholder" id="placeholder">
+            <p>等待图片</p>
+            <span>拖拽或选择图片后即可裁切</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
