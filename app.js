@@ -19,7 +19,13 @@ const imageOffset = document.getElementById("imageOffset");
 const offsetMeta = document.getElementById("offsetMeta");
 const watermarkToggle = document.getElementById("watermarkToggle");
 const watermarkInput = document.getElementById("watermarkInput");
+const watermarkInput2 = document.getElementById("watermarkInput2");
 const watermarkMeta = document.getElementById("watermarkMeta");
+const watermarkText = document.getElementById("watermarkText");
+const wmTextSizeRange = document.getElementById("wmTextSizeRange");
+const wmTextSizeInput = document.getElementById("wmTextSizeInput");
+const wmTextOffsetRange = document.getElementById("wmTextOffsetRange");
+const wmTextOffsetInput = document.getElementById("wmTextOffsetInput");
 const wmXRange = document.getElementById("wmXRange");
 const wmXInput = document.getElementById("wmXInput");
 const wmYRange = document.getElementById("wmYRange");
@@ -34,6 +40,22 @@ const styleMeta = document.getElementById("styleMeta");
 const downloadBtn = document.getElementById("downloadBtn");
 const barInfo = document.getElementById("barInfo");
 const placeholder = document.getElementById("placeholder");
+
+// 磨砂相框元素
+const frostedFrameToggle = document.getElementById("frostedFrameToggle");
+const frameWidth = document.getElementById("frameWidth");
+const frameWidthValue = document.getElementById("frameWidthValue");
+const frameBlur = document.getElementById("frameBlur");
+const frameBlurValue = document.getElementById("frameBlurValue");
+const frameOpacity = document.getElementById("frameOpacity");
+const frameOpacityValue = document.getElementById("frameOpacityValue");
+const framePadding = document.getElementById("framePadding");
+const framePaddingValue = document.getElementById("framePaddingValue");
+const frameBorderRadius = document.getElementById("frameBorderRadius");
+const frameBorderRadiusValue = document.getElementById("frameBorderRadiusValue");
+const frostedFrameMeta = document.getElementById("frostedFrameMeta");
+
+
 
 const state = {
   image: null,
@@ -50,11 +72,19 @@ const state = {
   watermarkImage: null,
   watermarkName: "",
   watermarkSize: 0,
+  watermarkImage2: null,
+  watermarkName2: "",
+  watermarkSize2: 0,
+  watermarkText: "",
+  watermarkTextSize: 24,
+  watermarkTextOffset: 10,
   watermarkOffsetX: 0,
   watermarkOffsetY: 0,
   watermarkScale: 100,
   watermarkOpacity: 0.8,
   fitRect: null,
+  frostedFrameEnabled: false,
+  frostedFrameImage: null,
 };
 
 const handles = [
@@ -357,23 +387,82 @@ function draw() {
     ctx.restore();
   }
 
-  if (state.watermarkEnabled && state.watermarkImage) {
+  // 绘制磨砂相框
+  if (state.frostedFrameEnabled && state.frostedFrameImage) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(fit.x, fit.y, fit.w, fit.h);
+    ctx.clip();
+    ctx.drawImage(state.frostedFrameImage, fit.x, fit.y, fit.w, fit.h);
+    ctx.restore();
+  }
+
+  if (state.watermarkEnabled && (state.watermarkImage || state.watermarkImage2)) {
     const scale = fit.w / state.image.width;
     const wmScale = state.watermarkScale / 100;
-    const drawW = state.watermarkImage.width * scale * wmScale;
-    const drawH = state.watermarkImage.height * scale * wmScale;
     const centerX = fit.x + fit.w / 2;
     const centerY = fit.y + fit.h / 2;
     const offsetX = (state.watermarkOffsetX / 100) * fit.w;
     const offsetY = (state.watermarkOffsetY / 100) * fit.h;
-    const x = centerX - drawW / 2 + offsetX;
-    const y = centerY - drawH / 2 + offsetY;
+
     ctx.save();
     ctx.beginPath();
     ctx.rect(fit.x, fit.y, fit.w, fit.h);
     ctx.clip();
     ctx.globalAlpha = state.watermarkOpacity;
-    ctx.drawImage(state.watermarkImage, x, y, drawW, drawH);
+
+    // 如果有两个水印，对称显示
+    if (state.watermarkImage && state.watermarkImage2) {
+      const drawW1 = state.watermarkImage.width * scale * wmScale;
+      const drawH1 = state.watermarkImage.height * scale * wmScale;
+      const drawW2 = state.watermarkImage2.width * scale * wmScale;
+      const drawH2 = state.watermarkImage2.height * scale * wmScale;
+
+      // 计算间距
+      const spacing = fit.w * 0.1;
+
+      // 左侧水印
+      const x1 = centerX - spacing / 2 - drawW1 + offsetX;
+      const y1 = centerY - drawH1 / 2 + offsetY;
+      ctx.drawImage(state.watermarkImage, x1, y1, drawW1, drawH1);
+
+      // 右侧水印
+      const x2 = centerX + spacing / 2 + offsetX;
+      const y2 = centerY - drawH2 / 2 + offsetY;
+      ctx.drawImage(state.watermarkImage2, x2, y2, drawW2, drawH2);
+
+      // 绘制文字（在两个水印中间下方）
+      if (state.watermarkText) {
+        ctx.globalAlpha = 1;
+        const fontSize = state.watermarkTextSize * scale;
+        ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const textY = Math.max(y1 + drawH1, y2 + drawH2) + (state.watermarkTextOffset / 100) * fit.h;
+        ctx.fillText(state.watermarkText, centerX + offsetX, textY);
+      }
+    } else if (state.watermarkImage) {
+      // 单个水印
+      const drawW = state.watermarkImage.width * scale * wmScale;
+      const drawH = state.watermarkImage.height * scale * wmScale;
+      const x = centerX - drawW / 2 + offsetX;
+      const y = centerY - drawH / 2 + offsetY;
+      ctx.drawImage(state.watermarkImage, x, y, drawW, drawH);
+
+      // 绘制文字（在水印下方）
+      if (state.watermarkText) {
+        ctx.globalAlpha = 1;
+        const fontSize = state.watermarkTextSize * scale;
+        ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+        ctx.fillStyle = "#ffffff";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "top";
+        const textY = y + drawH + (state.watermarkTextOffset / 100) * fit.h;
+        ctx.fillText(state.watermarkText, centerX + offsetX, textY);
+      }
+    }
+
     ctx.restore();
   }
 
@@ -448,6 +537,128 @@ function updateOffsetMeta() {
   offsetMeta.textContent = `偏移 ${value}%`;
 }
 
+function updateFrostedFrameMeta() {
+  if (!state.image) {
+    frostedFrameMeta.textContent = "等待图片";
+    return;
+  }
+  if (!state.frostedFrameEnabled) {
+    frostedFrameMeta.textContent = "磨砂相框已关闭";
+    return;
+  }
+  frostedFrameMeta.textContent = "使用当前图片作为相框背景";
+}
+
+function updateFrostedFrameControls() {
+  const enabled = state.frostedFrameEnabled && state.image;
+  frameWidth.disabled = !enabled;
+  frameBlur.disabled = !enabled;
+  frameOpacity.disabled = !enabled;
+  framePadding.disabled = !enabled;
+  frameBorderRadius.disabled = !enabled;
+}
+
+function generateFrostedFrame() {
+  if (!state.image) return;
+
+  const fWidth = parseInt(frameWidth.value, 10);
+  const blur = parseInt(frameBlur.value, 10);
+  const opacity = parseInt(frameOpacity.value, 10) / 100;
+  const padding = parseInt(framePadding.value, 10);
+  const borderRadius = parseInt(frameBorderRadius.value, 10);
+
+  const imgW = state.image.width;
+  const imgH = state.image.height;
+  const canvasW = imgW + fWidth * 2;
+  const canvasH = imgH + fWidth * 2;
+
+  const tempCanvas = document.createElement("canvas");
+  tempCanvas.width = canvasW;
+  tempCanvas.height = canvasH;
+  const tempCtx = tempCanvas.getContext("2d");
+
+  // 创建模糊边框
+  tempCtx.filter = `blur(${blur}px)`;
+
+  // 上边框
+  tempCtx.drawImage(state.image, 0, 0, imgW, 1, fWidth, 0, imgW, fWidth + padding);
+  // 下边框
+  tempCtx.drawImage(state.image, 0, imgH - 1, imgW, 1, fWidth, canvasH - fWidth - padding, imgW, fWidth + padding);
+  // 左边框
+  tempCtx.drawImage(state.image, 0, 0, 1, imgH, 0, fWidth, fWidth + padding, imgH);
+  // 右边框
+  tempCtx.drawImage(state.image, imgW - 1, 0, 1, imgH, canvasW - fWidth - padding, fWidth, fWidth + padding, imgH);
+
+  // 四个角落
+  tempCtx.drawImage(state.image, 0, 0, 1, 1, 0, 0, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, imgW - 1, 0, 1, 1, canvasW - fWidth - padding, 0, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, 0, imgH - 1, 1, 1, 0, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, imgW - 1, imgH - 1, 1, 1, canvasW - fWidth - padding, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
+
+  // 创建最终画布
+  const finalCanvas = document.createElement("canvas");
+  finalCanvas.width = canvasW;
+  finalCanvas.height = canvasH;
+  const finalCtx = finalCanvas.getContext("2d");
+
+  // 应用不透明度和圆角
+  finalCtx.save();
+  finalCtx.globalAlpha = opacity;
+
+  if (borderRadius > 0) {
+    finalCtx.beginPath();
+    finalCtx.roundRect(0, 0, canvasW, canvasH, borderRadius);
+    finalCtx.clip();
+  }
+
+  finalCtx.drawImage(tempCanvas, 0, 0);
+  finalCtx.restore();
+
+  // 裁剪中心区域
+  finalCtx.save();
+  finalCtx.globalCompositeOperation = "destination-out";
+  finalCtx.fillStyle = "black";
+  if (borderRadius > 0) {
+    finalCtx.beginPath();
+    finalCtx.roundRect(fWidth, fWidth, imgW, imgH, Math.max(0, borderRadius - fWidth));
+    finalCtx.fill();
+  } else {
+    finalCtx.fillRect(fWidth, fWidth, imgW, imgH);
+  }
+  finalCtx.restore();
+
+  // 绘制中心清晰图片
+  finalCtx.save();
+  if (borderRadius > 0) {
+    finalCtx.beginPath();
+    finalCtx.roundRect(fWidth, fWidth, imgW, imgH, Math.max(0, borderRadius - fWidth));
+    finalCtx.clip();
+  }
+  finalCtx.drawImage(state.image, fWidth, fWidth, imgW, imgH);
+  finalCtx.restore();
+
+  // 转换为图片
+  const img = new Image();
+  img.onload = () => {
+    state.frostedFrameImage = img;
+    draw();
+  };
+  img.src = finalCanvas.toDataURL("image/png");
+}
+
+function setFrostedFrameEnabled(enabled) {
+  state.frostedFrameEnabled = enabled;
+  updateFrostedFrameControls();
+  updateFrostedFrameMeta();
+  if (enabled && state.image) {
+    generateFrostedFrame();
+  } else {
+    state.frostedFrameImage = null;
+    draw();
+  }
+}
+
+
 function clamp(value, min, max) {
   if (Number.isNaN(value)) return min;
   return Math.min(max, Math.max(min, value));
@@ -458,17 +669,27 @@ function updateWatermarkMeta() {
     watermarkMeta.textContent = "水印已关闭";
     return;
   }
-  if (!state.watermarkImage) {
+  if (!state.watermarkImage && !state.watermarkImage2) {
     watermarkMeta.textContent = "未选择水印";
     return;
   }
-  watermarkMeta.textContent = `${state.watermarkName} · ${state.watermarkImage.width}×${state.watermarkImage.height} · ${formatBytes(state.watermarkSize)}`;
+  let metaText = "";
+  if (state.watermarkImage) {
+    metaText += `水印1: ${state.watermarkName} · ${state.watermarkImage.width}×${state.watermarkImage.height}`;
+  }
+  if (state.watermarkImage2) {
+    if (metaText) metaText += " | ";
+    metaText += `水印2: ${state.watermarkName2} · ${state.watermarkImage2.width}×${state.watermarkImage2.height}`;
+  }
+  watermarkMeta.textContent = metaText;
 }
 
 function updateWatermarkControls() {
   const enabled = state.watermarkEnabled;
   watermarkInput.disabled = !enabled;
-  const adjustDisabled = !enabled || !state.watermarkImage;
+  watermarkInput2.disabled = !enabled;
+  watermarkText.disabled = !enabled;
+  const adjustDisabled = !enabled || (!state.watermarkImage && !state.watermarkImage2);
   const inputs = [
     wmXRange,
     wmXInput,
@@ -478,6 +699,10 @@ function updateWatermarkControls() {
     wmScaleInput,
     wmOpacityRange,
     wmOpacityInput,
+    wmTextSizeRange,
+    wmTextSizeInput,
+    wmTextOffsetRange,
+    wmTextOffsetInput,
   ];
   inputs.forEach((input) => {
     input.disabled = adjustDisabled;
@@ -587,6 +812,22 @@ function handleWatermarkFile(file) {
   img.src = url;
 }
 
+function handleWatermarkFile2(file) {
+  if (!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    URL.revokeObjectURL(url);
+    state.watermarkImage2 = img;
+    state.watermarkName2 = file.name;
+    state.watermarkSize2 = file.size;
+    updateWatermarkControls();
+    updateWatermarkMeta();
+    draw();
+  };
+  img.src = url;
+}
+
 function applyCrop() {
   if (!state.image || !state.cropEnabled || !state.cropRect || !state.fitRect) return;
   const scale = state.fitRect.w / state.image.width;
@@ -683,46 +924,121 @@ function updateBarRatio() {
 
 function downloadImage() {
   if (!state.image) return;
-  const output = document.createElement("canvas");
-  output.width = state.image.width;
-  output.height = state.image.height;
-  const outCtx = output.getContext("2d");
-  const drawH = output.height;
-  const drawY = (state.imageOffsetY / 100) * output.height;
-  outCtx.drawImage(state.image, 0, drawY, output.width, drawH);
 
-  const bars = computeBars(state.image.width, state.image.height, state.barRatio);
-  if (bars) {
-    outCtx.fillStyle = hexToRgba(state.barColor, state.barOpacity);
-    if (bars.type === "letter") {
-      const barH = bars.size;
-      outCtx.fillRect(0, 0, state.image.width, barH);
-      outCtx.fillRect(0, state.image.height - barH, state.image.width, barH);
-    } else {
-      const barW = bars.size;
-      outCtx.fillRect(0, 0, barW, state.image.height);
-      outCtx.fillRect(state.image.width - barW, 0, barW, state.image.height);
+  let output;
+  let outputWidth;
+  let outputHeight;
+
+  // 如果启用了磨砂相框，使用相框图片的尺寸
+  if (state.frostedFrameEnabled && state.frostedFrameImage) {
+    outputWidth = state.frostedFrameImage.width;
+    outputHeight = state.frostedFrameImage.height;
+  } else {
+    outputWidth = state.image.width;
+    outputHeight = state.image.height;
+  }
+
+  output = document.createElement("canvas");
+  output.width = outputWidth;
+  output.height = outputHeight;
+  const outCtx = output.getContext("2d");
+
+  // 如果启用了磨砂相框，先绘制相框
+  if (state.frostedFrameEnabled && state.frostedFrameImage) {
+    outCtx.drawImage(state.frostedFrameImage, 0, 0);
+  } else {
+    // 否则绘制原图
+    const drawH = output.height;
+    const drawY = (state.imageOffsetY / 100) * output.height;
+    outCtx.drawImage(state.image, 0, drawY, output.width, drawH);
+
+    const bars = computeBars(state.image.width, state.image.height, state.barRatio);
+    if (bars) {
+      outCtx.fillStyle = hexToRgba(state.barColor, state.barOpacity);
+      if (bars.type === "letter") {
+        const barH = bars.size;
+        outCtx.fillRect(0, 0, state.image.width, barH);
+        outCtx.fillRect(0, state.image.height - barH, state.image.width, barH);
+      } else {
+        const barW = bars.size;
+        outCtx.fillRect(0, 0, barW, state.image.height);
+        outCtx.fillRect(state.image.width - barW, 0, barW, state.image.height);
+      }
     }
   }
 
-  if (state.watermarkEnabled && state.watermarkImage) {
+  if (state.watermarkEnabled && (state.watermarkImage || state.watermarkImage2)) {
+    const baseWidth = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.width : outputWidth;
+    const baseHeight = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.height : outputHeight;
+    const offsetX = state.frostedFrameEnabled && state.frostedFrameImage ? parseInt(frameWidth.value, 10) : 0;
+    const offsetY = state.frostedFrameEnabled && state.frostedFrameImage ? parseInt(frameWidth.value, 10) : 0;
+
     const wmScale = state.watermarkScale / 100;
-    const drawW = state.watermarkImage.width * wmScale;
-    const drawWMH = state.watermarkImage.height * wmScale;
-    const centerX = output.width / 2;
-    const centerY = output.height / 2;
-    const offsetX = (state.watermarkOffsetX / 100) * output.width;
-    const offsetY = (state.watermarkOffsetY / 100) * output.height;
-    const x = centerX - drawW / 2 + offsetX;
-    const y = centerY - drawWMH / 2 + offsetY;
+    const centerX = offsetX + baseWidth / 2;
+    const centerY = offsetY + baseHeight / 2;
+    const posOffsetX = (state.watermarkOffsetX / 100) * baseWidth;
+    const posOffsetY = (state.watermarkOffsetY / 100) * baseHeight;
+
     outCtx.save();
     outCtx.globalAlpha = state.watermarkOpacity;
-    outCtx.drawImage(state.watermarkImage, x, y, drawW, drawWMH);
+
+    // 如果有两个水印，对称显示
+    if (state.watermarkImage && state.watermarkImage2) {
+      const drawW1 = state.watermarkImage.width * wmScale;
+      const drawH1 = state.watermarkImage.height * wmScale;
+      const drawW2 = state.watermarkImage2.width * wmScale;
+      const drawH2 = state.watermarkImage2.height * wmScale;
+
+      const spacing = baseWidth * 0.1;
+
+      // 左侧水印
+      const x1 = centerX - spacing / 2 - drawW1 + posOffsetX;
+      const y1 = centerY - drawH1 / 2 + posOffsetY;
+      outCtx.drawImage(state.watermarkImage, x1, y1, drawW1, drawH1);
+
+      // 右侧水印
+      const x2 = centerX + spacing / 2 + posOffsetX;
+      const y2 = centerY - drawH2 / 2 + posOffsetY;
+      outCtx.drawImage(state.watermarkImage2, x2, y2, drawW2, drawH2);
+
+      // 绘制文字
+      if (state.watermarkText) {
+        outCtx.globalAlpha = 1;
+        const fontSize = state.watermarkTextSize;
+        outCtx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+        outCtx.fillStyle = "#ffffff";
+        outCtx.textAlign = "center";
+        outCtx.textBaseline = "top";
+        const textY = Math.max(y1 + drawH1, y2 + drawH2) + (state.watermarkTextOffset / 100) * baseHeight;
+        outCtx.fillText(state.watermarkText, centerX + posOffsetX, textY);
+      }
+    } else if (state.watermarkImage) {
+      // 单个水印
+      const drawW = state.watermarkImage.width * wmScale;
+      const drawWMH = state.watermarkImage.height * wmScale;
+      const x = centerX - drawW / 2 + posOffsetX;
+      const y = centerY - drawWMH / 2 + posOffsetY;
+      outCtx.drawImage(state.watermarkImage, x, y, drawW, drawWMH);
+
+      // 绘制文字
+      if (state.watermarkText) {
+        outCtx.globalAlpha = 1;
+        const fontSize = state.watermarkTextSize;
+        outCtx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+        outCtx.fillStyle = "#ffffff";
+        outCtx.textAlign = "center";
+        outCtx.textBaseline = "top";
+        const textY = y + drawWMH + (state.watermarkTextOffset / 100) * baseHeight;
+        outCtx.fillText(state.watermarkText, centerX + posOffsetX, textY);
+      }
+    }
+
     outCtx.restore();
   }
 
   const link = document.createElement("a");
-  link.download = `${state.imageName.replace(/\.[^.]+$/, "")}-letterbox.png`;
+  const suffix = state.frostedFrameEnabled ? "-frosted" : "-letterbox";
+  link.download = `${state.imageName.replace(/\.[^.]+$/, "")}${suffix}.png`;
   link.href = output.toDataURL("image/png");
   link.click();
 }
@@ -864,6 +1180,48 @@ watermarkInput.addEventListener("change", (event) => {
   handleWatermarkFile(file);
 });
 
+watermarkInput2.addEventListener("change", (event) => {
+  const file = event.target.files[0];
+  handleWatermarkFile2(file);
+});
+
+watermarkText.addEventListener("input", () => {
+  state.watermarkText = watermarkText.value;
+  draw();
+});
+
+wmTextSizeRange.addEventListener("input", (event) => {
+  const value = clamp(parseInt(event.target.value, 10), 10, 100);
+  state.watermarkTextSize = value;
+  wmTextSizeRange.value = value;
+  wmTextSizeInput.value = value;
+  draw();
+});
+
+wmTextSizeInput.addEventListener("input", (event) => {
+  const value = clamp(parseInt(event.target.value, 10), 10, 100);
+  state.watermarkTextSize = value;
+  wmTextSizeRange.value = value;
+  wmTextSizeInput.value = value;
+  draw();
+});
+
+wmTextOffsetRange.addEventListener("input", (event) => {
+  const value = clamp(parseInt(event.target.value, 10), 0, 50);
+  state.watermarkTextOffset = value;
+  wmTextOffsetRange.value = value;
+  wmTextOffsetInput.value = value;
+  draw();
+});
+
+wmTextOffsetInput.addEventListener("input", (event) => {
+  const value = clamp(parseInt(event.target.value, 10), 0, 50);
+  state.watermarkTextOffset = value;
+  wmTextOffsetRange.value = value;
+  wmTextOffsetInput.value = value;
+  draw();
+});
+
 wmXRange.addEventListener("input", (event) => {
   const value = clamp(parseInt(event.target.value, 10), -50, 50);
   setWatermarkOffsetX(value);
@@ -935,6 +1293,51 @@ canvas.addEventListener("pointerdown", onPointerDown);
 canvas.addEventListener("pointermove", onPointerMove);
 window.addEventListener("pointerup", onPointerUp);
 
+// 磨砂相框事件监听
+frostedFrameToggle.addEventListener("change", (event) => {
+  setFrostedFrameEnabled(event.target.checked);
+});
+
+frameWidth.addEventListener("input", (event) => {
+  const value = event.target.value;
+  frameWidthValue.textContent = `${value}px`;
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  }
+});
+
+frameBlur.addEventListener("input", (event) => {
+  const value = event.target.value;
+  frameBlurValue.textContent = `${value}px`;
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  }
+});
+
+frameOpacity.addEventListener("input", (event) => {
+  const value = event.target.value;
+  frameOpacityValue.textContent = `${value}%`;
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  }
+});
+
+framePadding.addEventListener("input", (event) => {
+  const value = event.target.value;
+  framePaddingValue.textContent = `${value}px`;
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  }
+});
+
+frameBorderRadius.addEventListener("input", (event) => {
+  const value = event.target.value;
+  frameBorderRadiusValue.textContent = `${value}px`;
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  }
+});
+
 const resizeObserver = new ResizeObserver(resizeCanvas);
 resizeObserver.observe(canvas.parentElement);
 
@@ -948,4 +1351,11 @@ setWatermarkEnabled(watermarkToggle.checked);
 updateStyleMeta();
 updateBarRatio();
 updateCropAspect();
+updateFrostedFrameMeta();
+updateFrostedFrameControls();
+frameWidthValue.textContent = `${frameWidth.value}px`;
+frameBlurValue.textContent = `${frameBlur.value}px`;
+frameOpacityValue.textContent = `${frameOpacity.value}%`;
+framePaddingValue.textContent = `${framePadding.value}px`;
+frameBorderRadiusValue.textContent = `${frameBorderRadius.value}px`;
 resizeCanvas();

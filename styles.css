@@ -352,6 +352,159 @@ canvas {
   display: none !important;
 }
 
+/* 磨砂水印工具弹窗样式 */
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  display: grid;
+  place-items: center;
+  z-index: 1000;
+  padding: 24px;
+  overflow-y: auto;
+}
+
+.modal-content {
+  background: var(--panel-solid);
+  border-radius: 24px;
+  border: 1px solid var(--stroke);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  max-width: 600px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 24px 28px;
+  border-bottom: 1px solid var(--stroke);
+}
+
+.modal-header h2 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.close-btn {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 20px;
+  display: grid;
+  place-items: center;
+  transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: rotate(90deg);
+}
+
+.modal-body {
+  padding: 24px 28px;
+  display: grid;
+  gap: 24px;
+}
+
+.wm-tool-section {
+  display: grid;
+  gap: 12px;
+}
+
+.wm-tool-section h3 {
+  margin: 0;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: var(--muted);
+}
+
+.value-display {
+  font-size: 12px;
+  color: var(--accent-2);
+  font-weight: 600;
+}
+
+.wm-preview-wrap {
+  background: #0c0f16;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 32px;
+  display: grid;
+  place-items: center;
+  min-height: 200px;
+}
+
+#wmCanvas {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.dropzone-small {
+  position: relative;
+  padding: 16px;
+  border-radius: 12px;
+  border: 1px dashed rgba(255, 255, 255, 0.25);
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.02);
+  transition: border 0.2s ease, background 0.2s ease;
+}
+
+.dropzone-small input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.dropzone-small p {
+  margin: 0 0 4px;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.dropzone-small span {
+  font-size: 11px;
+}
+
+.placeholder-small {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  text-align: center;
+  gap: 4px;
+}
+
+.placeholder-small p {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.placeholder-small span {
+  font-size: 11px;
+}
+
+.placeholder-small.hidden {
+  display: none;
+}
+
 @media (max-width: 960px) {
   .hero {
     flex-direction: column;
@@ -369,5 +522,13 @@ canvas {
   .panel.preview {
     position: static;
     top: auto;
+  }
+
+  .modal {
+    padding: 12px;
+  }
+
+  .modal-content {
+    max-height: 95vh;
   }
 }
