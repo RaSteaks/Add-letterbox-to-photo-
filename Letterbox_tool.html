@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="专业的照片遮幅工具，支持裁切、比例调整、磨砂相框和水印功能" />
   <title>遮幅器 | Letterbox Lab</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="ambient"></div>
+  <div class="ambient" aria-hidden="true"></div>
   <main class="shell">
     <header class="hero">
       <div>
@@ -15,7 +16,7 @@
         <h1>导入照片，裁切并添加遮幅</h1>
         <p class="sub">在浏览器中完成裁切、比例调整与遮幅导出，保持原图尺寸输出。</p>
       </div>
-      <div class="ratio-badge">
+      <div class="ratio-badge" role="status" aria-label="常用遮幅比例">
         <span>常用遮幅</span>
         <strong>2.39:1</strong>
       </div>
@@ -25,25 +26,25 @@
       <div class="panel controls">
         <div class="block">
           <h2>导入</h2>
-          <div id="dropzone" class="dropzone">
-            <input id="fileInput" type="file" accept="image/*" />
+          <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-label="拖拽或点击上传图片">
+            <input id="fileInput" type="file" accept="image/*" aria-label="选择图片文件" />
             <div>
               <p>拖拽图片到这里</p>
               <span>或点击选择文件</span>
             </div>
           </div>
-          <div class="meta" id="fileMeta">尚未选择图片</div>
+          <div class="meta" id="fileMeta" role="status" aria-live="polite">尚未选择图片</div>
         </div>
 
         <div class="block">
           <h2>裁切</h2>
           <label class="field toggle">
             <span>是否裁切</span>
-            <input id="cropToggle" type="checkbox" checked />
+            <input id="cropToggle" type="checkbox" checked aria-label="启用或禁用裁切功能" />
           </label>
           <label class="field">
             <span>裁切比例</span>
-            <select id="cropSelect">
+            <select id="cropSelect" aria-label="选择裁切比例">
               <option value="free">自由</option>
               <option value="1">1:1</option>
               <option value="4:3">4:3</option>
@@ -88,12 +89,12 @@
           <h2>样式</h2>
           <label class="field">
             <span>图片上下偏移</span>
-            <input id="imageOffset" type="range" min="-50" max="50" value="0" />
+            <input id="imageOffset" type="range" min="-50" max="50" value="0" aria-label="调整图片垂直偏移" aria-valuemin="-50" aria-valuemax="50" aria-valuenow="0" />
           </label>
           <div class="meta" id="offsetMeta">偏移 0%</div>
           <label class="field">
             <span>遮幅颜色</span>
-            <input id="barColor" type="color" value="#0b0b0b" />
+            <input id="barColor" type="color" value="#0b0b0b" aria-label="选择遮幅颜色" />
           </label>
           <label class="field">
             <span>不透明度</span>
@@ -212,7 +213,7 @@
           <div class="chip" id="barInfo">未加载</div>
         </div>
         <div class="canvas-wrap">
-          <canvas id="canvas"></canvas>
+          <canvas id="canvas" aria-label="图片预览画布"></canvas>
           <div class="placeholder" id="placeholder">
             <p>等待图片</p>
             <span>拖拽或选择图片后即可裁切</span>

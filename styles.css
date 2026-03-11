@@ -1,7 +1,7 @@
 @import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=ZCOOL+XiaoWei&display=swap");
 
 :root {
-  color-scheme: light;
+  color-scheme: dark;
   --bg: #0b0d12;
   --panel: rgba(22, 25, 34, 0.85);
   --panel-solid: #171a22;
@@ -12,6 +12,11 @@
   --accent-3: #ff845d;
   --stroke: rgba(255, 255, 255, 0.08);
   --shadow: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.25);
+  --shadow-lg: 0 30px 80px rgba(0, 0, 0, 0.6);
+  --transition-fast: 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 * {
@@ -26,6 +31,8 @@ body {
   background: radial-gradient(circle at top right, rgba(101, 214, 255, 0.12), transparent 55%),
     radial-gradient(circle at 10% 20%, rgba(247, 198, 111, 0.18), transparent 50%),
     #0a0b10;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 .ambient {
@@ -38,6 +45,18 @@ body {
   filter: blur(12px);
   opacity: 0.7;
   z-index: 0;
+  animation: ambientPulse 8s ease-in-out infinite alternate;
+}
+
+@keyframes ambientPulse {
+  from {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  to {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
 }
 
 .shell {
@@ -61,6 +80,25 @@ body {
   background: linear-gradient(120deg, rgba(23, 26, 34, 0.9), rgba(33, 39, 52, 0.85));
   box-shadow: var(--shadow);
   border: 1px solid var(--stroke);
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--accent-2), var(--accent), var(--accent-3));
+  opacity: 0.6;
+}
+
+.hero:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 
 .eyebrow {
@@ -92,6 +130,13 @@ body {
   display: grid;
   gap: 6px;
   text-align: right;
+  transition: all var(--transition-base);
+}
+
+.ratio-badge:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: scale(1.02);
 }
 
 .ratio-badge span {
@@ -117,6 +162,12 @@ body {
   border: 1px solid var(--stroke);
   box-shadow: var(--shadow);
   backdrop-filter: blur(14px);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.panel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.5);
 }
 
 .controls {
@@ -132,6 +183,12 @@ body {
   border: 1px solid rgba(255, 255, 255, 0.06);
   display: grid;
   gap: 12px;
+  transition: background var(--transition-base), border-color var(--transition-base);
+}
+
+.block:hover {
+  background: rgba(12, 14, 20, 0.75);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .block h2 {
@@ -161,6 +218,21 @@ body {
   background: rgba(255, 255, 255, 0.06);
   color: var(--text);
   padding: 10px 12px;
+  transition: all var(--transition-fast);
+}
+
+.field input:focus,
+.field select:focus {
+  outline: none;
+  border-color: var(--accent-2);
+  background: rgba(255, 255, 255, 0.1);
+  box-shadow: 0 0 0 3px rgba(101, 214, 255, 0.1);
+}
+
+.field input:hover:not(:disabled),
+.field select:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .field input[type="color"] {
@@ -213,7 +285,14 @@ body {
   text-align: center;
   color: var(--muted);
   background: rgba(255, 255, 255, 0.02);
-  transition: border 0.2s ease, background 0.2s ease;
+  transition: all var(--transition-base);
+  cursor: pointer;
+}
+
+.dropzone:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.04);
+  transform: scale(1.01);
 }
 
 .dropzone input {
@@ -226,6 +305,8 @@ body {
 .dropzone.active {
   border-color: var(--accent-2);
   background: rgba(101, 214, 255, 0.08);
+  transform: scale(1.02);
+  box-shadow: 0 0 0 4px rgba(101, 214, 255, 0.1);
 }
 
 .dropzone p {
@@ -257,19 +338,64 @@ button.secondary {
   border: none;
   cursor: pointer;
   font-weight: 600;
-  transition: transform 0.15s ease, box-shadow 0.15s ease, opacity 0.15s ease;
+  transition: all var(--transition-fast);
+  position: relative;
+  overflow: hidden;
+}
+
+button.primary::before,
+button.secondary::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.2);
+  transform: translate(-50%, -50%);
+  transition: width var(--transition-slow), height var(--transition-slow);
+}
+
+button.primary:active::before,
+button.secondary:active::before {
+  width: 300px;
+  height: 300px;
 }
 
 button.primary {
   background: linear-gradient(120deg, var(--accent), var(--accent-3));
   color: #1b130b;
   box-shadow: 0 12px 30px rgba(255, 132, 93, 0.25);
+  position: relative;
+  z-index: 1;
+}
+
+button.primary:hover:not(:disabled) {
+  box-shadow: 0 16px 40px rgba(255, 132, 93, 0.35);
+  transform: translateY(-2px);
+}
+
+button.primary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 button.secondary {
   background: rgba(255, 255, 255, 0.08);
   color: var(--text);
   border: 1px solid rgba(255, 255, 255, 0.12);
+  position: relative;
+  z-index: 1;
+}
+
+button.secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+button.secondary:active:not(:disabled) {
+  transform: translateY(0);
 }
 
 button:disabled {
@@ -281,6 +407,11 @@ button:disabled {
 
 button:not(:disabled):hover {
   transform: translateY(-1px);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
 }
 
 .preview {
@@ -311,6 +442,13 @@ button:not(:disabled):hover {
   background: rgba(255, 255, 255, 0.08);
   font-size: 12px;
   color: var(--muted);
+  transition: all var(--transition-fast);
+  border: 1px solid transparent;
+}
+
+.chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
 .canvas-wrap {
@@ -320,6 +458,11 @@ button:not(:disabled):hover {
   border: 1px solid rgba(255, 255, 255, 0.08);
   height: 420px;
   overflow: hidden;
+  transition: border-color var(--transition-base);
+}
+
+.canvas-wrap:hover {
+  border-color: rgba(255, 255, 255, 0.15);
 }
 
 canvas {
@@ -363,17 +506,39 @@ canvas {
   z-index: 1000;
   padding: 24px;
   overflow-y: auto;
+  animation: modalFadeIn var(--transition-base);
+}
+
+@keyframes modalFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 .modal-content {
   background: var(--panel-solid);
   border-radius: 24px;
   border: 1px solid var(--stroke);
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-lg);
   max-width: 600px;
   width: 100%;
   max-height: 90vh;
   overflow-y: auto;
+  animation: modalSlideUp var(--transition-base);
+}
+
+@keyframes modalSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .modal-header {
@@ -400,12 +565,17 @@ canvas {
   font-size: 20px;
   display: grid;
   place-items: center;
-  transition: all 0.2s ease;
+  transition: all var(--transition-base);
 }
 
 .close-btn:hover {
   background: rgba(255, 255, 255, 0.15);
   transform: rotate(90deg);
+}
+
+.close-btn:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
 }
 
 .modal-body {
@@ -532,3 +702,192 @@ canvas {
     max-height: 95vh;
   }
 }
+
+/* 滚动条样式 */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+  transition: background var(--transition-fast);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 选择文本样式 */
+::selection {
+  background: rgba(101, 214, 255, 0.3);
+  color: var(--text);
+}
+
+/* 加载动画 */
+@keyframes shimmer {
+  0% {
+    background-position: -1000px 0;
+  }
+  100% {
+    background-position: 1000px 0;
+  }
+}
+
+.loading {
+  animation: shimmer 2s infinite linear;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0%,
+    rgba(255, 255, 255, 0.15) 50%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  background-size: 1000px 100%;
+}
+
+/* 输入范围滑块增强 */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  cursor: pointer;
+  margin-top: -6px;
+  box-shadow: 0 2px 8px rgba(101, 214, 255, 0.4);
+  transition: all var(--transition-fast);
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(101, 214, 255, 0.6);
+}
+
+input[type="range"]::-moz-range-track {
+  background: rgba(255, 255, 255, 0.1);
+  height: 6px;
+  border-radius: 3px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent-2), var(--accent));
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(101, 214, 255, 0.4);
+  transition: all var(--transition-fast);
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  transform: scale(1.2);
+  box-shadow: 0 4px 12px rgba(101, 214, 255, 0.6);
+}
+
+/* 复选框增强 */
+input[type="checkbox"] {
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+input[type="checkbox"]:focus-visible {
+  outline: 2px solid var(--accent-2);
+  outline-offset: 2px;
+}
+
+/* 工具提示样式 */
+[data-tooltip] {
+  position: relative;
+}
+
+[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  padding: 6px 12px;
+  background: var(--panel-solid);
+  border: 1px solid var(--stroke);
+  border-radius: 8px;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+  z-index: 1000;
+}
+
+[data-tooltip]:hover::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(-4px);
+}
+
+/* 渐变文字效果 */
+.gradient-text {
+  background: linear-gradient(120deg, var(--accent-2), var(--accent), var(--accent-3));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 脉冲动画 */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* 减少动画（可访问性） */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  :root {
+    --stroke: rgba(255, 255, 255, 0.3);
+    --muted: rgba(245, 243, 240, 0.9);
+  }
+
+  .panel,
+  .block,
+  .hero {
+    border-width: 2px;
+  }
+}
+
