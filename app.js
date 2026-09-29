@@ -134,6 +134,8 @@ const minCropSize = 40;
 const idlePreviewHeight = 420;
 const minPreviewHeight = 260;
 const maxPreviewHeight = 820;
+// 相框交互合成上限：拖动滑块时按预览分辨率合成（长边不超过该值），导出时再按原图分辨率重新生成
+const framePreviewMaxSide = 1600;
 
 function setBlockCollapsed(block, collapsed) {
   if (!block) return;
@@ -633,17 +635,24 @@ function updateFrostedFrameControls() {
   frameBorderRadius.disabled = !enabled;
 }
 
-function generateFrostedFrame() {
-  if (!state.image) return;
+// 相框按该比例合成：交互时限制到预览分辨率，导出时传 1 用原图分辨率
+function framePreviewScale(borderWidth) {
+  if (!state.image) return 1;
+  const longSide = Math.max(state.image.width, state.image.height) + borderWidth * 2;
+  return longSide <= framePreviewMaxSide ? 1 : framePreviewMaxSide / longSide;
+}
 
-  const fWidth = parseInt(frameWidth.value, 10);
-  const blur = parseInt(frameBlur.value, 10);
+function buildFrostedFrameCanvas(scale) {
+  const fWidth = Math.max(1, Math.round(parseInt(frameWidth.value, 10) * scale));
+  const blur = Math.max(0, parseInt(frameBlur.value, 10) * scale);
   const opacity = parseInt(frameOpacity.value, 10) / 100;
-  const padding = parseInt(framePadding.value, 10);
-  const borderRadius = parseInt(frameBorderRadius.value, 10);
+  const padding = Math.max(0, Math.round(parseInt(framePadding.value, 10) * scale));
+  const borderRadius = Math.max(0, parseInt(frameBorderRadius.value, 10) * scale);
 
-  const imgW = state.image.width;
-  const imgH = state.image.height;
+  const srcW = state.image.width;
+  const srcH = state.image.height;
+  const imgW = Math.max(1, Math.round(srcW * scale));
+  const imgH = Math.max(1, Math.round(srcH * scale));
   const canvasW = imgW + fWidth * 2;
   const canvasH = imgH + fWidth * 2;
 
@@ -656,19 +665,19 @@ function generateFrostedFrame() {
   tempCtx.filter = `blur(${blur}px)`;
 
   // 上边框
-  tempCtx.drawImage(state.image, 0, 0, imgW, 1, fWidth, 0, imgW, fWidth + padding);
+  tempCtx.drawImage(state.image, 0, 0, srcW, 1, fWidth, 0, imgW, fWidth + padding);
   // 下边框
-  tempCtx.drawImage(state.image, 0, imgH - 1, imgW, 1, fWidth, canvasH - fWidth - padding, imgW, fWidth + padding);
+  tempCtx.drawImage(state.image, 0, srcH - 1, srcW, 1, fWidth, canvasH - fWidth - padding, imgW, fWidth + padding);
   // 左边框
-  tempCtx.drawImage(state.image, 0, 0, 1, imgH, 0, fWidth, fWidth + padding, imgH);
+  tempCtx.drawImage(state.image, 0, 0, 1, srcH, 0, fWidth, fWidth + padding, imgH);
   // 右边框
-  tempCtx.drawImage(state.image, imgW - 1, 0, 1, imgH, canvasW - fWidth - padding, fWidth, fWidth + padding, imgH);
+  tempCtx.drawImage(state.image, srcW - 1, 0, 1, srcH, canvasW - fWidth - padding, fWidth, fWidth + padding, imgH);
 
   // 四个角落
   tempCtx.drawImage(state.image, 0, 0, 1, 1, 0, 0, fWidth + padding, fWidth + padding);
-  tempCtx.drawImage(state.image, imgW - 1, 0, 1, 1, canvasW - fWidth - padding, 0, fWidth + padding, fWidth + padding);
-  tempCtx.drawImage(state.image, 0, imgH - 1, 1, 1, 0, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
-  tempCtx.drawImage(state.image, imgW - 1, imgH - 1, 1, 1, canvasW - fWidth - padding, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, srcW - 1, 0, 1, 1, canvasW - fWidth - padding, 0, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, 0, srcH - 1, 1, 1, 0, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
+  tempCtx.drawImage(state.image, srcW - 1, srcH - 1, 1, 1, canvasW - fWidth - padding, canvasH - fWidth - padding, fWidth + padding, fWidth + padding);
 
   // 创建最终画布
   const finalCanvas = document.createElement("canvas");
@@ -712,14 +721,22 @@ function generateFrostedFrame() {
   finalCtx.drawImage(state.image, fWidth, fWidth, imgW, imgH);
   finalCtx.restore();
 
-  // 转换为图片
-  const img = new Image();
-  img.onload = () => {
-    state.frostedFrameImage = img;
+  return finalCanvas;
+}
+
+// 每帧最多合成一次：拖动时的连续 input 事件合并成单次重算，画布直接复用（省去 PNG 编码与解码）
+let frostedRegenQueued = false;
+function generateFrostedFrame() {
+  if (!state.image) return;
+  if (frostedRegenQueued) return;
+  frostedRegenQueued = true;
+  requestAnimationFrame(() => {
+    frostedRegenQueued = false;
+    if (!state.image || !state.frostedFrameEnabled) return;
+    state.frostedFrameImage = buildFrostedFrameCanvas(framePreviewScale(parseInt(frameWidth.value, 10)));
     updateExportMeta();
     draw();
-  };
-  img.src = finalCanvas.toDataURL("image/png");
+  });
 }
 
 function setFrostedFrameEnabled(enabled) {
@@ -777,13 +794,11 @@ function updateSwatchActive() {
   });
 }
 
-function generateSolidFrame() {
-  if (!state.image) return;
-
-  const bw = parseInt(solidFrameWidth.value, 10);
-  const radius = parseInt(solidFrameRadius.value, 10);
-  const imgW = state.image.width;
-  const imgH = state.image.height;
+function buildSolidFrameCanvas(scale) {
+  const bw = Math.max(1, Math.round(parseInt(solidFrameWidth.value, 10) * scale));
+  const radius = Math.max(0, parseInt(solidFrameRadius.value, 10) * scale);
+  const imgW = Math.max(1, Math.round(state.image.width * scale));
+  const imgH = Math.max(1, Math.round(state.image.height * scale));
   const canvasW = imgW + bw * 2;
   const canvasH = imgH + bw * 2;
 
@@ -814,13 +829,21 @@ function generateSolidFrame() {
   frameCtx.drawImage(state.image, bw, bw, imgW, imgH);
   frameCtx.restore();
 
-  const img = new Image();
-  img.onload = () => {
-    state.solidFrameImage = img;
+  return frameCanvas;
+}
+
+let solidRegenQueued = false;
+function generateSolidFrame() {
+  if (!state.image) return;
+  if (solidRegenQueued) return;
+  solidRegenQueued = true;
+  requestAnimationFrame(() => {
+    solidRegenQueued = false;
+    if (!state.image || !state.solidFrameEnabled) return;
+    state.solidFrameImage = buildSolidFrameCanvas(framePreviewScale(parseInt(solidFrameWidth.value, 10)));
     updateExportMeta();
     draw();
-  };
-  img.src = frameCanvas.toDataURL("image/png");
+  });
 }
 
 function setSolidFrameColor(color) {
@@ -1005,20 +1028,24 @@ function exportExtension(mime) {
   return exts[mime] || "png";
 }
 
+// 导出尺寸按相框宽度直接计算，不依赖合成结果（交互预览版是缩小合成的）
+function frameOutputSize() {
+  if (!state.image) return null;
+  const bw = state.solidFrameEnabled
+    ? parseInt(solidFrameWidth.value, 10)
+    : state.frostedFrameEnabled
+      ? parseInt(frameWidth.value, 10)
+      : 0;
+  return { w: state.image.width + bw * 2, h: state.image.height + bw * 2 };
+}
+
 function updateExportMeta() {
   if (!state.image) {
     exportMeta.textContent = "导入图片后可导出";
     return;
   }
-  const frameImg =
-    state.solidFrameEnabled && state.solidFrameImage
-      ? state.solidFrameImage
-      : state.frostedFrameEnabled && state.frostedFrameImage
-        ? state.frostedFrameImage
-        : null;
-  const w = frameImg ? frameImg.width : state.image.width;
-  const h = frameImg ? frameImg.height : state.image.height;
-  exportMeta.textContent = `导出 ${w} × ${h}px · ${formatLabel(getExportMime())}`;
+  const size = frameOutputSize();
+  exportMeta.textContent = `导出 ${size.w} × ${size.h}px · ${formatLabel(getExportMime())}`;
   downloadBtn.textContent = `下载 ${formatLabel(getExportMime())}`;
 }
 
@@ -1129,20 +1156,19 @@ function applyCrop() {
   const offCtx = offscreen.getContext("2d");
   offCtx.drawImage(state.image, sx, sy, sw, sh, 0, 0, sw, sh);
 
-  const newImg = new Image();
-  newImg.onload = () => {
-    state.image = newImg;
-    state.imageName = `${state.imageName.replace(/\.[^.]+$/, "")}-crop`;
-    updateCanvasWrapHeight();
-    initCropRect();
-    updateFileMeta();
-    updateCropMeta();
-    updateRatioMeta();
-    updateBarInfo();
-    updateExportMeta();
-    resizeCanvas();
-  };
-  newImg.src = offscreen.toDataURL("image/png");
+  // 直接沿用裁切画布，省去一次全图 PNG 编码与解码
+  state.image = offscreen;
+  state.imageName = `${state.imageName.replace(/\.[^.]+$/, "")}-crop`;
+  updateCanvasWrapHeight();
+  initCropRect();
+  updateFileMeta();
+  updateCropMeta();
+  updateRatioMeta();
+  updateBarInfo();
+  updateExportMeta();
+  if (state.frostedFrameEnabled) generateFrostedFrame();
+  if (state.solidFrameEnabled) generateSolidFrame();
+  resizeCanvas();
 }
 
 function resetCrop() {
@@ -1213,25 +1239,18 @@ function downloadImage() {
 
   const mime = getExportMime();
 
-  let output;
-  let outputWidth;
-  let outputHeight;
-
-  // 如果启用了相框，使用相框图片的尺寸
-  if (state.solidFrameEnabled && state.solidFrameImage) {
-    outputWidth = state.solidFrameImage.width;
-    outputHeight = state.solidFrameImage.height;
-  } else if (state.frostedFrameEnabled && state.frostedFrameImage) {
-    outputWidth = state.frostedFrameImage.width;
-    outputHeight = state.frostedFrameImage.height;
-  } else {
-    outputWidth = state.image.width;
-    outputHeight = state.image.height;
+  // 导出前按原图分辨率重新合成相框（交互预览用的是缩小版本）
+  if (state.solidFrameEnabled) {
+    state.solidFrameImage = buildSolidFrameCanvas(1);
+  }
+  if (state.frostedFrameEnabled) {
+    state.frostedFrameImage = buildFrostedFrameCanvas(1);
   }
 
-  output = document.createElement("canvas");
-  output.width = outputWidth;
-  output.height = outputHeight;
+  const size = frameOutputSize();
+  const output = document.createElement("canvas");
+  output.width = size.w;
+  output.height = size.h;
   const outCtx = output.getContext("2d");
 
   // JPEG 没有透明通道，先铺白底避免半透明区域（如遮幅）变黑
@@ -1240,11 +1259,11 @@ function downloadImage() {
     outCtx.fillRect(0, 0, output.width, output.height);
   }
 
-  // 如果启用了相框，先绘制相框
+  // 如果启用了相框，先绘制相框（按导出尺寸铺满，缩小合成的版本也能正确映射）
   if (state.solidFrameEnabled && state.solidFrameImage) {
-    outCtx.drawImage(state.solidFrameImage, 0, 0);
+    outCtx.drawImage(state.solidFrameImage, 0, 0, size.w, size.h);
   } else if (state.frostedFrameEnabled && state.frostedFrameImage) {
-    outCtx.drawImage(state.frostedFrameImage, 0, 0);
+    outCtx.drawImage(state.frostedFrameImage, 0, 0, size.w, size.h);
   } else {
     // 否则绘制原图
     const drawH = output.height;
@@ -1275,8 +1294,8 @@ function downloadImage() {
       : frostedFramed
         ? parseInt(frameWidth.value, 10)
         : 0;
-    const baseWidth = solidFramed || frostedFramed ? state.image.width : outputWidth;
-    const baseHeight = solidFramed || frostedFramed ? state.image.height : outputHeight;
+    const baseWidth = solidFramed || frostedFramed ? state.image.width : size.w;
+    const baseHeight = solidFramed || frostedFramed ? state.image.height : size.h;
     const offsetX = framePad;
     const offsetY = framePad;
 
