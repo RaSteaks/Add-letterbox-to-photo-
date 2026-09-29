@@ -54,6 +54,7 @@ const dropOverlay = document.getElementById("dropOverlay");
 const blockImport = document.getElementById("blockImport");
 const blockCrop = document.getElementById("blockCrop");
 const blockFrame = document.getElementById("blockFrame");
+const blockSolid = document.getElementById("blockSolid");
 const blockWatermark = document.getElementById("blockWatermark");
 
 const mobileQuery = window.matchMedia("(max-width: 960px)");
@@ -71,6 +72,15 @@ const framePaddingValue = document.getElementById("framePaddingValue");
 const frameBorderRadius = document.getElementById("frameBorderRadius");
 const frameBorderRadiusValue = document.getElementById("frameBorderRadiusValue");
 const frostedFrameMeta = document.getElementById("frostedFrameMeta");
+const solidFrameToggle = document.getElementById("solidFrameToggle");
+const solidFrameColor = document.getElementById("solidFrameColor");
+const solidSwatches = document.getElementById("solidSwatches");
+const solidFrameWidth = document.getElementById("solidFrameWidth");
+const solidFrameWidthValue = document.getElementById("solidFrameWidthValue");
+const solidFrameRadius = document.getElementById("solidFrameRadius");
+const solidFrameRadiusValue = document.getElementById("solidFrameRadiusValue");
+const solidFrameMeta = document.getElementById("solidFrameMeta");
+const solidFrameBadge = document.getElementById("solidFrameBadge");
 
 
 
@@ -103,6 +113,9 @@ const state = {
   fitRect: null,
   frostedFrameEnabled: false,
   frostedFrameImage: null,
+  solidFrameEnabled: false,
+  solidFrameImage: null,
+  solidFrameColor: "#f2ede3",
 };
 
 const handles = [
@@ -430,6 +443,16 @@ function draw() {
     ctx.restore();
   }
 
+  // 绘制纯色相框
+  if (state.solidFrameEnabled && state.solidFrameImage) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(fit.x, fit.y, fit.w, fit.h);
+    ctx.clip();
+    ctx.drawImage(state.solidFrameImage, fit.x, fit.y, fit.w, fit.h);
+    ctx.restore();
+  }
+
   const hasWmImage = !!(state.watermarkImage || state.watermarkImage2);
   if (state.watermarkEnabled && (hasWmImage || state.watermarkText)) {
     const scale = fit.w / state.image.width;
@@ -700,6 +723,15 @@ function generateFrostedFrame() {
 }
 
 function setFrostedFrameEnabled(enabled) {
+  // 与纯色相框互斥：开启磨砂时关闭纯色
+  if (enabled && state.solidFrameEnabled) {
+    solidFrameToggle.checked = false;
+    state.solidFrameEnabled = false;
+    state.solidFrameImage = null;
+    setBlockCollapsed(blockSolid, true);
+    updateSolidFrameControls();
+    updateSolidFrameMeta();
+  }
   state.frostedFrameEnabled = enabled;
   updateFrostedFrameControls();
   updateFrostedFrameMeta();
@@ -708,6 +740,117 @@ function setFrostedFrameEnabled(enabled) {
     generateFrostedFrame();
   } else {
     state.frostedFrameImage = null;
+    draw();
+  }
+}
+
+function updateSolidFrameMeta() {
+  if (!state.solidFrameEnabled) {
+    solidFrameMeta.textContent = "纯色相框已关闭";
+    solidFrameBadge.textContent = "关闭";
+    return;
+  }
+  solidFrameBadge.textContent = state.solidFrameColor.toUpperCase();
+  if (!state.image) {
+    solidFrameMeta.textContent = "等待图片";
+    return;
+  }
+  solidFrameMeta.textContent = "使用所选颜色作为相框";
+}
+
+function updateSolidFrameControls() {
+  const enabled = state.solidFrameEnabled && state.image;
+  solidFrameColor.disabled = !enabled;
+  solidFrameWidth.disabled = !enabled;
+  solidFrameRadius.disabled = !enabled;
+  solidSwatches.querySelectorAll(".swatch").forEach((btn) => {
+    btn.disabled = !enabled;
+  });
+}
+
+function updateSwatchActive() {
+  solidSwatches.querySelectorAll(".swatch").forEach((btn) => {
+    btn.classList.toggle(
+      "active",
+      btn.dataset.color.toLowerCase() === state.solidFrameColor.toLowerCase()
+    );
+  });
+}
+
+function generateSolidFrame() {
+  if (!state.image) return;
+
+  const bw = parseInt(solidFrameWidth.value, 10);
+  const radius = parseInt(solidFrameRadius.value, 10);
+  const imgW = state.image.width;
+  const imgH = state.image.height;
+  const canvasW = imgW + bw * 2;
+  const canvasH = imgH + bw * 2;
+
+  const frameCanvas = document.createElement("canvas");
+  frameCanvas.width = canvasW;
+  frameCanvas.height = canvasH;
+  const frameCtx = frameCanvas.getContext("2d");
+
+  // 相框底色（外圆角）
+  frameCtx.save();
+  if (radius > 0) {
+    frameCtx.beginPath();
+    frameCtx.roundRect(0, 0, canvasW, canvasH, radius);
+    frameCtx.clip();
+  }
+  frameCtx.fillStyle = state.solidFrameColor;
+  frameCtx.fillRect(0, 0, canvasW, canvasH);
+  frameCtx.restore();
+
+  // 中心图片（内圆角随外圆角收缩，与磨砂相框一致）
+  frameCtx.save();
+  const innerRadius = Math.max(0, radius - bw);
+  if (innerRadius > 0) {
+    frameCtx.beginPath();
+    frameCtx.roundRect(bw, bw, imgW, imgH, innerRadius);
+    frameCtx.clip();
+  }
+  frameCtx.drawImage(state.image, bw, bw, imgW, imgH);
+  frameCtx.restore();
+
+  const img = new Image();
+  img.onload = () => {
+    state.solidFrameImage = img;
+    updateExportMeta();
+    draw();
+  };
+  img.src = frameCanvas.toDataURL("image/png");
+}
+
+function setSolidFrameColor(color) {
+  state.solidFrameColor = color;
+  solidFrameColor.value = color;
+  updateSwatchActive();
+  updateSolidFrameMeta();
+  if (state.solidFrameEnabled && state.image) {
+    generateSolidFrame();
+  }
+}
+
+function setSolidFrameEnabled(enabled) {
+  // 与磨砂相框互斥：开启纯色时关闭磨砂
+  if (enabled && state.frostedFrameEnabled) {
+    frostedFrameToggle.checked = false;
+    state.frostedFrameEnabled = false;
+    state.frostedFrameImage = null;
+    setBlockCollapsed(blockFrame, true);
+    updateFrostedFrameControls();
+    updateFrostedFrameMeta();
+  }
+  state.solidFrameEnabled = enabled;
+  updateSolidFrameControls();
+  updateSolidFrameMeta();
+  updateExportMeta();
+  if (enabled && state.image) {
+    generateSolidFrame();
+  } else {
+    state.solidFrameImage = null;
     draw();
   }
 }
@@ -867,9 +1010,14 @@ function updateExportMeta() {
     exportMeta.textContent = "导入图片后可导出";
     return;
   }
-  const framed = state.frostedFrameEnabled && state.frostedFrameImage;
-  const w = framed ? state.frostedFrameImage.width : state.image.width;
-  const h = framed ? state.frostedFrameImage.height : state.image.height;
+  const frameImg =
+    state.solidFrameEnabled && state.solidFrameImage
+      ? state.solidFrameImage
+      : state.frostedFrameEnabled && state.frostedFrameImage
+        ? state.frostedFrameImage
+        : null;
+  const w = frameImg ? frameImg.width : state.image.width;
+  const h = frameImg ? frameImg.height : state.image.height;
   exportMeta.textContent = `导出 ${w} × ${h}px · ${formatLabel(getExportMime())}`;
   downloadBtn.textContent = `下载 ${formatLabel(getExportMime())}`;
 }
@@ -918,6 +1066,10 @@ function handleImage(file) {
     updateRatioMeta();
     updateBarInfo();
     updateExportMeta();
+    updateFrostedFrameControls();
+    updateSolidFrameControls();
+    if (state.frostedFrameEnabled) generateFrostedFrame();
+    if (state.solidFrameEnabled) generateSolidFrame();
     setControlsEnabled(true);
     // 已导入图片，收起导入区减少干扰
     setBlockCollapsed(blockImport, true);
@@ -1065,8 +1217,11 @@ function downloadImage() {
   let outputWidth;
   let outputHeight;
 
-  // 如果启用了磨砂相框，使用相框图片的尺寸
-  if (state.frostedFrameEnabled && state.frostedFrameImage) {
+  // 如果启用了相框，使用相框图片的尺寸
+  if (state.solidFrameEnabled && state.solidFrameImage) {
+    outputWidth = state.solidFrameImage.width;
+    outputHeight = state.solidFrameImage.height;
+  } else if (state.frostedFrameEnabled && state.frostedFrameImage) {
     outputWidth = state.frostedFrameImage.width;
     outputHeight = state.frostedFrameImage.height;
   } else {
@@ -1085,8 +1240,10 @@ function downloadImage() {
     outCtx.fillRect(0, 0, output.width, output.height);
   }
 
-  // 如果启用了磨砂相框，先绘制相框
-  if (state.frostedFrameEnabled && state.frostedFrameImage) {
+  // 如果启用了相框，先绘制相框
+  if (state.solidFrameEnabled && state.solidFrameImage) {
+    outCtx.drawImage(state.solidFrameImage, 0, 0);
+  } else if (state.frostedFrameEnabled && state.frostedFrameImage) {
     outCtx.drawImage(state.frostedFrameImage, 0, 0);
   } else {
     // 否则绘制原图
@@ -1111,10 +1268,17 @@ function downloadImage() {
 
   const hasWmImage = !!(state.watermarkImage || state.watermarkImage2);
   if (state.watermarkEnabled && (hasWmImage || state.watermarkText)) {
-    const baseWidth = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.width : outputWidth;
-    const baseHeight = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.height : outputHeight;
-    const offsetX = state.frostedFrameEnabled && state.frostedFrameImage ? parseInt(frameWidth.value, 10) : 0;
-    const offsetY = state.frostedFrameEnabled && state.frostedFrameImage ? parseInt(frameWidth.value, 10) : 0;
+    const solidFramed = state.solidFrameEnabled && state.solidFrameImage;
+    const frostedFramed = state.frostedFrameEnabled && state.frostedFrameImage;
+    const framePad = solidFramed
+      ? parseInt(solidFrameWidth.value, 10)
+      : frostedFramed
+        ? parseInt(frameWidth.value, 10)
+        : 0;
+    const baseWidth = solidFramed || frostedFramed ? state.image.width : outputWidth;
+    const baseHeight = solidFramed || frostedFramed ? state.image.height : outputHeight;
+    const offsetX = framePad;
+    const offsetY = framePad;
 
     const wmScale = state.watermarkScale / 100;
     const centerX = offsetX + baseWidth / 2;
@@ -1189,7 +1353,11 @@ function downloadImage() {
   }
 
   const link = document.createElement("a");
-  const suffix = state.frostedFrameEnabled ? "-frosted" : "-letterbox";
+  const suffix = state.solidFrameEnabled
+    ? "-frame"
+    : state.frostedFrameEnabled
+      ? "-frosted"
+      : "-letterbox";
   link.download = `${state.imageName.replace(/\.[^.]+$/, "")}${suffix}.${exportExtension(mime)}`;
   link.href = output.toDataURL(mime, mime === "image/jpeg" || mime === "image/webp" ? 0.92 : undefined);
   link.click();
@@ -1551,6 +1719,38 @@ frameBorderRadius.addEventListener("input", (event) => {
   }
 });
 
+// 纯色相框事件监听
+solidFrameToggle.addEventListener("change", (event) => {
+  setSolidFrameEnabled(event.target.checked);
+  setBlockCollapsed(blockSolid, !event.target.checked);
+});
+
+solidFrameColor.addEventListener("input", (event) => {
+  setSolidFrameColor(event.target.value);
+});
+
+solidSwatches.addEventListener("click", (event) => {
+  const btn = event.target.closest(".swatch");
+  if (!btn || btn.disabled) return;
+  setSolidFrameColor(btn.dataset.color);
+});
+
+solidFrameWidth.addEventListener("input", (event) => {
+  const value = event.target.value;
+  solidFrameWidthValue.textContent = `${value}px`;
+  if (state.solidFrameEnabled && state.image) {
+    generateSolidFrame();
+  }
+});
+
+solidFrameRadius.addEventListener("input", (event) => {
+  const value = event.target.value;
+  solidFrameRadiusValue.textContent = `${value}px`;
+  if (state.solidFrameEnabled && state.image) {
+    generateSolidFrame();
+  }
+});
+
 const resizeObserver = new ResizeObserver(resizeCanvas);
 resizeObserver.observe(canvas.parentElement);
 
@@ -1571,10 +1771,15 @@ updateBarRatio();
 updateCropAspect();
 updateFrostedFrameMeta();
 updateFrostedFrameControls();
+updateSolidFrameMeta();
+updateSolidFrameControls();
+updateSwatchActive();
 updateExportMeta();
 frameWidthValue.textContent = `${frameWidth.value}px`;
 frameBlurValue.textContent = `${frameBlur.value}px`;
 frameOpacityValue.textContent = `${frameOpacity.value}%`;
 framePaddingValue.textContent = `${framePadding.value}px`;
 frameBorderRadiusValue.textContent = `${frameBorderRadius.value}px`;
+solidFrameWidthValue.textContent = `${solidFrameWidth.value}px`;
+solidFrameRadiusValue.textContent = `${solidFrameRadius.value}px`;
 resizeCanvas();

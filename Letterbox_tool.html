@@ -203,11 +203,59 @@
           </div>
         </section>
 
+        <section class="block collapsed" id="blockSolid">
+          <header class="block-head">
+            <button type="button" class="block-toggle" aria-expanded="false" aria-controls="bodySolid">
+              <svg class="block-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              <span class="block-index">06</span>
+              <span class="block-title">纯色相框</span>
+              <span class="block-badge" id="solidFrameBadge">关闭</span>
+            </button>
+            <label class="switch">
+              <input id="solidFrameToggle" type="checkbox" aria-label="启用或禁用纯色相框" />
+            </label>
+          </header>
+          <div class="block-body" id="bodySolid">
+            <div class="block-inner">
+              <div class="block-content">
+                <label class="field">
+                  <span class="field-label">相框颜色</span>
+                  <input id="solidFrameColor" type="color" value="#f2ede3" aria-label="选择相框颜色" />
+                </label>
+                <div class="field">
+                  <span class="field-label">预设颜色</span>
+                  <div class="swatches" id="solidSwatches">
+                    <button type="button" class="swatch" data-color="#ffffff" style="--swatch-color: #ffffff" title="纯白" aria-label="纯白"></button>
+                    <button type="button" class="swatch" data-color="#f2ede3" style="--swatch-color: #f2ede3" title="象牙白" aria-label="象牙白"></button>
+                    <button type="button" class="swatch" data-color="#e8b04b" style="--swatch-color: #e8b04b" title="钨金" aria-label="钨金"></button>
+                    <button type="button" class="swatch" data-color="#b98a5e" style="--swatch-color: #b98a5e" title="原木" aria-label="原木"></button>
+                    <button type="button" class="swatch" data-color="#6b4a2f" style="--swatch-color: #6b4a2f" title="胡桃" aria-label="胡桃"></button>
+                    <button type="button" class="swatch" data-color="#8c3b3b" style="--swatch-color: #8c3b3b" title="酒红" aria-label="酒红"></button>
+                    <button type="button" class="swatch" data-color="#3f5a44" style="--swatch-color: #3f5a44" title="墨绿" aria-label="墨绿"></button>
+                    <button type="button" class="swatch" data-color="#2f4157" style="--swatch-color: #2f4157" title="藏青" aria-label="藏青"></button>
+                    <button type="button" class="swatch" data-color="#a8c0d6" style="--swatch-color: #a8c0d6" title="雾蓝" aria-label="雾蓝"></button>
+                    <button type="button" class="swatch" data-color="#1a1917" style="--swatch-color: #1a1917" title="炭黑" aria-label="炭黑"></button>
+                  </div>
+                </div>
+                <label class="field">
+                  <span class="field-label">边框宽度<span class="value-display" id="solidFrameWidthValue">60px</span></span>
+                  <input id="solidFrameWidth" type="range" min="20" max="200" value="60" aria-label="调整相框宽度" />
+                </label>
+                <label class="field">
+                  <span class="field-label">外圆角<span class="value-display" id="solidFrameRadiusValue">0px</span></span>
+                  <input id="solidFrameRadius" type="range" min="0" max="100" value="0" aria-label="调整相框外圆角" />
+                </label>
+                <div class="meta" id="solidFrameMeta">等待图片</div>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="block collapsed" id="blockWatermark">
           <header class="block-head">
             <button type="button" class="block-toggle" aria-expanded="false" aria-controls="bodyWatermark">
               <svg class="block-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>
-              <span class="block-index">06</span>
+              <span class="block-index">07</span>
               <span class="block-title">水印</span>
               <span class="block-badge" id="wmBadge">关闭</span>
             </button>
