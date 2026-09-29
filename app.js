@@ -742,6 +742,7 @@ function generateFrostedFrame() {
 function setFrostedFrameEnabled(enabled) {
   // 与纯色相框互斥：开启磨砂时关闭纯色
   if (enabled && state.solidFrameEnabled) {
+    pushUndo("solid", captureSolid());
     solidFrameToggle.checked = false;
     state.solidFrameEnabled = false;
     state.solidFrameImage = null;
@@ -859,6 +860,7 @@ function setSolidFrameColor(color) {
 function setSolidFrameEnabled(enabled) {
   // 与磨砂相框互斥：开启纯色时关闭磨砂
   if (enabled && state.frostedFrameEnabled) {
+    pushUndo("frosted", captureFrosted());
     frostedFrameToggle.checked = false;
     state.frostedFrameEnabled = false;
     state.frostedFrameImage = null;
@@ -878,6 +880,353 @@ function setSolidFrameEnabled(enabled) {
   }
 }
 
+
+/* ============ 功能级撤销 / 取消 ============
+ * 每个分区独立记录改动快照：滑块拖动等连续输入只在手势开始时记一次，
+ * 「撤销」逐步回退本分区的改动，「取消」恢复默认设置（同样可再撤销）。 */
+const featureStacks = {};
+
+function featureStack(key) {
+  if (!featureStacks[key]) {
+    featureStacks[key] = { stack: [], gesture: null, refreshTimer: null, settled: null, lastPush: 0 };
+  }
+  return featureStacks[key];
+}
+
+// input/change 事件触发时控件值已被浏览器改掉，监听器里拿不到「改前」状态；
+// 因此每个功能维护一份稳定基线 settled：改动落定后刷新，下一次手势开始时把它入栈。
+function scheduleSettledRefresh(key) {
+  const fs = featureStack(key);
+  if (fs.gesture) return; // 手势进行中，结束时统一刷新
+  if (fs.refreshTimer) clearTimeout(fs.refreshTimer);
+  fs.refreshTimer = window.setTimeout(() => {
+    fs.refreshTimer = null;
+    fs.settled = featureRegistry[key].capture();
+  }, 0);
+}
+
+function pushUndo(key, snapshot, cap) {
+  const fs = featureStack(key);
+  fs.stack.push(snapshot);
+  const limit = cap || 30;
+  while (fs.stack.length > limit) fs.stack.shift();
+  fs.lastPush = Date.now();
+  updateUndoButtons();
+  scheduleSettledRefresh(key);
+}
+
+// 手势级快照：同一次拖动 / 连续输入只记一条，内容是手势开始前的基线
+function pushGestureUndo(key, capture) {
+  const fs = featureStack(key);
+  if (fs.gesture) return;
+  clearTimeout(fs.gesture);
+  fs.gesture = window.setTimeout(() => {
+    fs.gesture = null;
+    fs.settled = featureRegistry[key].capture();
+  }, 500);
+  pushUndo(key, fs.settled || capture());
+}
+
+function undoFeature(key) {
+  const fs = featureStacks[key];
+  if (!fs || !fs.stack.length) return;
+  featureRegistry[key].apply(fs.stack.pop());
+  scheduleSettledRefresh(key);
+  updateUndoButtons();
+}
+
+function cancelFeature(key) {
+  pushUndo(key, featureRegistry[key].capture());
+  featureRegistry[key].apply(featureRegistry[key].default());
+}
+
+function updateUndoButtons() {
+  document.querySelectorAll("[data-undo]").forEach((btn) => {
+    const fs = featureStacks[btn.dataset.undo];
+    btn.disabled = !fs || fs.stack.length === 0;
+  });
+  const importCancel = document.querySelector('[data-cancel="import"]');
+  if (importCancel) importCancel.disabled = !state.image;
+}
+
+function captureImport() {
+  return { image: state.image, imageName: state.imageName, imageType: state.imageType };
+}
+
+function captureCrop() {
+  return {
+    ...captureImport(),
+    cropEnabled: state.cropEnabled,
+    cropSelectValue: state.cropSelectValue,
+  };
+}
+
+function captureRatio() {
+  return { ratio: ratioSelect.value, w: customW.value, h: customH.value };
+}
+
+function captureStyle() {
+  return { offset: imageOffset.value, color: barColor.value, opacity: barOpacity.value };
+}
+
+function captureFrosted() {
+  return {
+    enabled: state.frostedFrameEnabled,
+    width: frameWidth.value,
+    blur: frameBlur.value,
+    opacity: frameOpacity.value,
+    padding: framePadding.value,
+    radius: frameBorderRadius.value,
+  };
+}
+
+function captureSolid() {
+  return {
+    enabled: state.solidFrameEnabled,
+    color: state.solidFrameColor,
+    width: solidFrameWidth.value,
+    radius: solidFrameRadius.value,
+  };
+}
+
+function captureWatermark() {
+  return {
+    enabled: state.watermarkEnabled,
+    image: state.watermarkImage,
+    name: state.watermarkName,
+    image2: state.watermarkImage2,
+    name2: state.watermarkName2,
+    text: state.watermarkText,
+    size: wmTextSizeRange.value,
+    offset: wmTextOffsetRange.value,
+    x: wmXRange.value,
+    y: wmYRange.value,
+    scale: wmScaleRange.value,
+    opacity: wmOpacityRange.value,
+  };
+}
+
+// 恢复图片类状态（导入撤销 / 取消时整个工作区跟着回退）
+function restoreImageState(s) {
+  state.image = s.image;
+  state.imageName = s.imageName;
+  state.imageType = s.imageType;
+  state.cropRect = null;
+  state.drag = null;
+  state.fitRect = null;
+  updateCanvasWrapHeight();
+  if (state.cropEnabled && state.image) {
+    initCropRect();
+  }
+  updateFileMeta();
+  updateCropMeta();
+  updateRatioMeta();
+  updateBarInfo();
+  updateExportMeta();
+  updateFrostedFrameControls();
+  updateSolidFrameControls();
+  setControlsEnabled(!!state.image);
+  setBlockCollapsed(blockImport, !!state.image);
+  if (state.frostedFrameEnabled && state.image) {
+    generateFrostedFrame();
+  } else {
+    state.frostedFrameImage = null;
+  }
+  if (state.solidFrameEnabled && state.image) {
+    generateSolidFrame();
+  } else {
+    state.solidFrameImage = null;
+  }
+  resizeCanvas();
+}
+
+function restoreCropState(s) {
+  if (s.image !== state.image) {
+    state.image = s.image;
+    state.imageName = s.imageName;
+    state.imageType = s.imageType;
+    updateFileMeta();
+    updateRatioMeta();
+    updateBarInfo();
+    updateExportMeta();
+    updateCanvasWrapHeight();
+    if (state.frostedFrameEnabled) generateFrostedFrame();
+    if (state.solidFrameEnabled) generateSolidFrame();
+  }
+  cropToggle.checked = s.cropEnabled;
+  cropSelect.value = s.cropSelectValue;
+  setCropEnabled(s.cropEnabled);
+  updateCropAspect();
+  setControlsEnabled(!!state.image);
+  resizeCanvas();
+}
+
+function restoreRatioState(s) {
+  ratioSelect.value = s.ratio;
+  customW.value = s.w;
+  customH.value = s.h;
+  updateBarRatio();
+}
+
+function restoreStyleState(s) {
+  imageOffset.value = s.offset;
+  state.imageOffsetY = parseInt(s.offset, 10) || 0;
+  barColor.value = s.color;
+  state.barColor = s.color;
+  barOpacity.value = s.opacity;
+  state.barOpacity = (parseInt(s.opacity, 10) || 0) / 100;
+  updateOffsetMeta();
+  updateStyleMeta();
+  draw();
+}
+
+function restoreFrostedState(s) {
+  frameWidth.value = s.width;
+  frameWidthValue.textContent = `${s.width}px`;
+  frameBlur.value = s.blur;
+  frameBlurValue.textContent = `${s.blur}px`;
+  frameOpacity.value = s.opacity;
+  frameOpacityValue.textContent = `${s.opacity}%`;
+  framePadding.value = s.padding;
+  framePaddingValue.textContent = `${s.padding}px`;
+  frameBorderRadius.value = s.radius;
+  frameBorderRadiusValue.textContent = `${s.radius}px`;
+  frostedFrameToggle.checked = s.enabled;
+  setBlockCollapsed(blockFrame, !s.enabled);
+  setFrostedFrameEnabled(s.enabled);
+}
+
+function restoreSolidState(s) {
+  solidFrameWidth.value = s.width;
+  solidFrameWidthValue.textContent = `${s.width}px`;
+  solidFrameRadius.value = s.radius;
+  solidFrameRadiusValue.textContent = `${s.radius}px`;
+  solidFrameToggle.checked = s.enabled;
+  setBlockCollapsed(blockSolid, !s.enabled);
+  setSolidFrameEnabled(s.enabled);
+  setSolidFrameColor(s.color);
+}
+
+function restoreWatermarkState(s) {
+  state.watermarkImage = s.image;
+  state.watermarkName = s.name;
+  state.watermarkImage2 = s.image2;
+  state.watermarkName2 = s.name2;
+  state.watermarkText = s.text;
+  watermarkText.value = s.text;
+  state.watermarkTextSize = parseInt(s.size, 10) || 24;
+  wmTextSizeRange.value = s.size;
+  wmTextSizeInput.value = s.size;
+  state.watermarkTextOffset = parseInt(s.offset, 10) || 10;
+  wmTextOffsetRange.value = s.offset;
+  wmTextOffsetInput.value = s.offset;
+  state.watermarkOffsetX = parseInt(s.x, 10) || 0;
+  wmXRange.value = s.x;
+  wmXInput.value = s.x;
+  state.watermarkOffsetY = parseInt(s.y, 10) || 0;
+  wmYRange.value = s.y;
+  wmYInput.value = s.y;
+  state.watermarkScale = parseInt(s.scale, 10) || 100;
+  wmScaleRange.value = s.scale;
+  wmScaleInput.value = s.scale;
+  state.watermarkOpacity = (parseInt(s.opacity, 10) || 0) / 100;
+  wmOpacityRange.value = s.opacity;
+  wmOpacityInput.value = s.opacity;
+  watermarkToggle.checked = s.enabled;
+  setBlockCollapsed(blockWatermark, !s.enabled);
+  setWatermarkEnabled(s.enabled);
+}
+
+const featureRegistry = {
+  import: {
+    capture: captureImport,
+    apply: restoreImageState,
+    default: () => ({ image: null, imageName: "", imageType: "" }),
+  },
+  crop: {
+    capture: captureCrop,
+    apply: restoreCropState,
+    default: () => ({
+      image: state.image,
+      imageName: state.imageName,
+      imageType: state.imageType,
+      cropEnabled: true,
+      cropSelectValue: "free",
+    }),
+  },
+  ratio: {
+    capture: captureRatio,
+    apply: restoreRatioState,
+    default: () => ({ ratio: "2.39", w: "2.39", h: "1" }),
+  },
+  style: {
+    capture: captureStyle,
+    apply: restoreStyleState,
+    default: () => ({ offset: "0", color: "#0b0b0b", opacity: "100" }),
+  },
+  frosted: {
+    capture: captureFrosted,
+    apply: restoreFrostedState,
+    default: () => ({ enabled: false, width: "60", blur: "30", opacity: "80", padding: "20", radius: "20" }),
+  },
+  solid: {
+    capture: captureSolid,
+    apply: restoreSolidState,
+    default: () => ({ enabled: false, color: "#f2ede3", width: "60", radius: "0" }),
+  },
+  watermark: {
+    capture: captureWatermark,
+    apply: restoreWatermarkState,
+    default: () => ({
+      enabled: false,
+      image: null,
+      name: "",
+      image2: null,
+      name2: "",
+      text: "",
+      size: "24",
+      offset: "10",
+      x: "0",
+      y: "0",
+      scale: "100",
+      opacity: "80",
+    }),
+  },
+};
+
+// 撤销 / 取消按钮（事件委托，各分区底部）
+document.addEventListener("click", (event) => {
+  const undoBtn = event.target.closest("[data-undo]");
+  if (undoBtn) {
+    undoFeature(undoBtn.dataset.undo);
+    return;
+  }
+  const cancelBtn = event.target.closest("[data-cancel]");
+  if (cancelBtn) cancelFeature(cancelBtn.dataset.cancel);
+});
+
+// Cmd/Ctrl+Z 撤销最近一次改动的分区；文本输入框内保留原生撤销
+window.addEventListener("keydown", (event) => {
+  if (!(event.metaKey || event.ctrlKey) || event.shiftKey || event.key.toLowerCase() !== "z") return;
+  const el = document.activeElement;
+  const tag = el ? el.tagName : "";
+  const type = el && el.type ? el.type : "";
+  const textLike = ["text", "number", "password", "search", "url", "email", "tel"];
+  if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && textLike.includes(type))) return;
+  let target = null;
+  let latest = 0;
+  Object.keys(featureStacks).forEach((key) => {
+    const fs = featureStacks[key];
+    if (fs.stack.length && fs.lastPush > latest) {
+      latest = fs.lastPush;
+      target = key;
+    }
+  });
+  if (target) {
+    event.preventDefault();
+    undoFeature(target);
+  }
+});
 
 function clamp(value, min, max) {
   if (Number.isNaN(value)) return min;
@@ -1075,6 +1424,8 @@ function setControlsEnabled(enabled) {
 
 function handleImage(file) {
   if (!file) return;
+  // 覆盖导入前记一条快照，可撤销回上一张图
+  if (state.image) pushUndo("import", captureImport(), 5);
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
@@ -1107,6 +1458,7 @@ function handleImage(file) {
 
 function handleWatermarkFile(file) {
   if (!file) return;
+  pushUndo("watermark", captureWatermark());
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
@@ -1123,6 +1475,7 @@ function handleWatermarkFile(file) {
 
 function handleWatermarkFile2(file) {
   if (!file) return;
+  pushUndo("watermark", captureWatermark());
   const url = URL.createObjectURL(file);
   const img = new Image();
   img.onload = () => {
@@ -1139,6 +1492,8 @@ function handleWatermarkFile2(file) {
 
 function applyCrop() {
   if (!state.image || !state.cropEnabled || !state.cropRect || !state.fitRect) return;
+  // 裁切会替换图片，先记快照（栈深较浅，避免多张全尺寸画布占内存）
+  pushUndo("crop", captureCrop(), 5);
   const scale = state.fitRect.w / state.image.width;
   let sx = (state.cropRect.x - state.fitRect.x) / scale;
   let sy = (state.cropRect.y - state.fitRect.y) / scale;
@@ -1196,6 +1551,8 @@ function setCropEnabled(enabled) {
 
 function updateCropAspect() {
   const value = cropSelect.value;
+  // 镜像到 state：change 事件里捕获快照时能拿到改前值
+  state.cropSelectValue = value;
   if (value === "free") {
     state.cropAspect = null;
   } else if (value.includes(":")) {
@@ -1542,25 +1899,40 @@ canvas.addEventListener("dblclick", () => {
 });
 
 cropToggle.addEventListener("change", (event) => {
+  if (state.image) pushUndo("crop", captureCrop(), 5);
   setCropEnabled(event.target.checked);
   setBlockCollapsed(blockCrop, !event.target.checked);
 });
 
-cropSelect.addEventListener("change", updateCropAspect);
+cropSelect.addEventListener("change", () => {
+  if (state.image) pushUndo("crop", captureCrop(), 5);
+  updateCropAspect();
+});
 applyCropBtn.addEventListener("click", applyCrop);
 resetCropBtn.addEventListener("click", resetCrop);
 
-ratioSelect.addEventListener("change", updateBarRatio);
-customW.addEventListener("input", updateBarRatio);
-customH.addEventListener("input", updateBarRatio);
+ratioSelect.addEventListener("change", () => {
+  pushGestureUndo("ratio", captureRatio);
+  updateBarRatio();
+});
+customW.addEventListener("input", () => {
+  pushGestureUndo("ratio", captureRatio);
+  updateBarRatio();
+});
+customH.addEventListener("input", () => {
+  pushGestureUndo("ratio", captureRatio);
+  updateBarRatio();
+});
 
 imageOffset.addEventListener("input", (event) => {
+  pushGestureUndo("style", captureStyle);
   state.imageOffsetY = parseInt(event.target.value, 10);
   updateOffsetMeta();
   draw();
 });
 
 watermarkToggle.addEventListener("change", (event) => {
+  pushUndo("watermark", captureWatermark());
   setWatermarkEnabled(event.target.checked);
   setBlockCollapsed(blockWatermark, !event.target.checked);
 });
@@ -1576,6 +1948,7 @@ watermarkInput2.addEventListener("change", (event) => {
 });
 
 watermarkText.addEventListener("input", () => {
+  pushGestureUndo("watermark", captureWatermark);
   state.watermarkText = watermarkText.value;
   updateWatermarkControls();
   updateWatermarkMeta();
@@ -1583,6 +1956,7 @@ watermarkText.addEventListener("input", () => {
 });
 
 wmTextSizeRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 10, 100);
   state.watermarkTextSize = value;
   wmTextSizeRange.value = value;
@@ -1591,6 +1965,7 @@ wmTextSizeRange.addEventListener("input", (event) => {
 });
 
 wmTextSizeInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 10, 100);
   state.watermarkTextSize = value;
   wmTextSizeRange.value = value;
@@ -1599,6 +1974,7 @@ wmTextSizeInput.addEventListener("input", (event) => {
 });
 
 wmTextOffsetRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 0, 50);
   state.watermarkTextOffset = value;
   wmTextOffsetRange.value = value;
@@ -1607,6 +1983,7 @@ wmTextOffsetRange.addEventListener("input", (event) => {
 });
 
 wmTextOffsetInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 0, 50);
   state.watermarkTextOffset = value;
   wmTextOffsetRange.value = value;
@@ -1615,52 +1992,62 @@ wmTextOffsetInput.addEventListener("input", (event) => {
 });
 
 wmXRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), -50, 50);
   setWatermarkOffsetX(value);
 });
 
 wmXInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), -50, 50);
   setWatermarkOffsetX(value);
 });
 
 wmYRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), -50, 50);
   setWatermarkOffsetY(value);
 });
 
 wmYInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), -50, 50);
   setWatermarkOffsetY(value);
 });
 
 wmScaleRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 10, 300);
   setWatermarkScale(value);
 });
 
 wmScaleInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 10, 300);
   setWatermarkScale(value);
 });
 
 wmOpacityRange.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 0, 100);
   setWatermarkOpacity(value);
 });
 
 wmOpacityInput.addEventListener("input", (event) => {
+  pushGestureUndo("watermark", captureWatermark);
   const value = clamp(parseInt(event.target.value, 10), 0, 100);
   setWatermarkOpacity(value);
 });
 
 barColor.addEventListener("input", (event) => {
+  pushGestureUndo("style", captureStyle);
   state.barColor = event.target.value;
   updateStyleMeta();
   draw();
 });
 
 barOpacity.addEventListener("input", (event) => {
+  pushGestureUndo("style", captureStyle);
   state.barOpacity = parseInt(event.target.value, 10) / 100;
   updateStyleMeta();
   draw();
@@ -1694,11 +2081,13 @@ window.addEventListener("pointerup", onPointerUp);
 
 // 磨砂相框事件监听
 frostedFrameToggle.addEventListener("change", (event) => {
+  pushUndo("frosted", captureFrosted());
   setFrostedFrameEnabled(event.target.checked);
   setBlockCollapsed(blockFrame, !event.target.checked);
 });
 
 frameWidth.addEventListener("input", (event) => {
+  pushGestureUndo("frosted", captureFrosted);
   const value = event.target.value;
   frameWidthValue.textContent = `${value}px`;
   if (state.frostedFrameEnabled && state.image) {
@@ -1707,6 +2096,7 @@ frameWidth.addEventListener("input", (event) => {
 });
 
 frameBlur.addEventListener("input", (event) => {
+  pushGestureUndo("frosted", captureFrosted);
   const value = event.target.value;
   frameBlurValue.textContent = `${value}px`;
   if (state.frostedFrameEnabled && state.image) {
@@ -1715,6 +2105,7 @@ frameBlur.addEventListener("input", (event) => {
 });
 
 frameOpacity.addEventListener("input", (event) => {
+  pushGestureUndo("frosted", captureFrosted);
   const value = event.target.value;
   frameOpacityValue.textContent = `${value}%`;
   if (state.frostedFrameEnabled && state.image) {
@@ -1723,6 +2114,7 @@ frameOpacity.addEventListener("input", (event) => {
 });
 
 framePadding.addEventListener("input", (event) => {
+  pushGestureUndo("frosted", captureFrosted);
   const value = event.target.value;
   framePaddingValue.textContent = `${value}px`;
   if (state.frostedFrameEnabled && state.image) {
@@ -1731,6 +2123,7 @@ framePadding.addEventListener("input", (event) => {
 });
 
 frameBorderRadius.addEventListener("input", (event) => {
+  pushGestureUndo("frosted", captureFrosted);
   const value = event.target.value;
   frameBorderRadiusValue.textContent = `${value}px`;
   if (state.frostedFrameEnabled && state.image) {
@@ -1740,21 +2133,25 @@ frameBorderRadius.addEventListener("input", (event) => {
 
 // 纯色相框事件监听
 solidFrameToggle.addEventListener("change", (event) => {
+  pushUndo("solid", captureSolid());
   setSolidFrameEnabled(event.target.checked);
   setBlockCollapsed(blockSolid, !event.target.checked);
 });
 
 solidFrameColor.addEventListener("input", (event) => {
+  pushGestureUndo("solid", captureSolid);
   setSolidFrameColor(event.target.value);
 });
 
 solidSwatches.addEventListener("click", (event) => {
   const btn = event.target.closest(".swatch");
   if (!btn || btn.disabled) return;
+  pushUndo("solid", captureSolid());
   setSolidFrameColor(btn.dataset.color);
 });
 
 solidFrameWidth.addEventListener("input", (event) => {
+  pushGestureUndo("solid", captureSolid);
   const value = event.target.value;
   solidFrameWidthValue.textContent = `${value}px`;
   if (state.solidFrameEnabled && state.image) {
@@ -1763,6 +2160,7 @@ solidFrameWidth.addEventListener("input", (event) => {
 });
 
 solidFrameRadius.addEventListener("input", (event) => {
+  pushGestureUndo("solid", captureSolid);
   const value = event.target.value;
   solidFrameRadiusValue.textContent = `${value}px`;
   if (state.solidFrameEnabled && state.image) {
@@ -1793,6 +2191,11 @@ updateFrostedFrameControls();
 updateSolidFrameMeta();
 updateSolidFrameControls();
 updateSwatchActive();
+// 各功能以加载时的状态作为首次手势的撤销基线
+Object.keys(featureRegistry).forEach((key) => {
+  featureStack(key).settled = featureRegistry[key].capture();
+});
+updateUndoButtons();
 updateExportMeta();
 frameWidthValue.textContent = `${frameWidth.value}px`;
 frameBlurValue.textContent = `${frameBlur.value}px`;

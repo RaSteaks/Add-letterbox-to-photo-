@@ -632,6 +632,13 @@ body::after {
   gap: 10px;
 }
 
+/* 功能级撤销/取消操作行：比主操作更轻量 */
+.block-actions button {
+  padding: 8px 12px;
+  font-size: 13px;
+  border-radius: 10px;
+}
+
 button.primary,
 button.secondary {
   font-family: inherit;

@@ -54,6 +54,10 @@
                   </div>
                 </div>
                 <div class="meta" id="fileMeta" role="status" aria-live="polite">尚未选择图片</div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="import" disabled aria-label="撤销上次导入">撤销</button>
+                  <button type="button" class="secondary" data-cancel="import" disabled aria-label="移除当前图片">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -89,6 +93,10 @@
                   <button id="resetCrop" class="secondary" disabled>重置裁切</button>
                 </div>
                 <div class="meta" id="cropMeta">等待图片</div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="crop" disabled aria-label="撤销裁切改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="crop" aria-label="恢复默认裁切设置">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -128,6 +136,10 @@
                   </label>
                 </div>
                 <div class="meta" id="ratioMeta">等待图片</div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="ratio" disabled aria-label="撤销比例改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="ratio" aria-label="恢复默认比例">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -157,6 +169,10 @@
                   <span class="field-label">不透明度<span class="value-display" id="barOpacityValue">100%</span></span>
                   <input id="barOpacity" type="range" min="0" max="100" value="100" />
                 </label>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="style" disabled aria-label="撤销样式改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="style" aria-label="恢复默认遮幅样式">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -198,6 +214,10 @@
                   <input id="frameBorderRadius" type="range" min="0" max="100" value="20" />
                 </label>
                 <div class="meta" id="frostedFrameMeta">等待图片</div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="frosted" disabled aria-label="撤销磨砂相框改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="frosted" aria-label="关闭并恢复默认磨砂相框">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -246,6 +266,10 @@
                   <input id="solidFrameRadius" type="range" min="0" max="100" value="0" aria-label="调整相框外圆角" />
                 </label>
                 <div class="meta" id="solidFrameMeta">等待图片</div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="solid" disabled aria-label="撤销纯色相框改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="solid" aria-label="关闭并恢复默认纯色相框">取消</button>
+                </div>
               </div>
             </div>
           </div>
@@ -323,6 +347,10 @@
                     <input id="wmOpacityRange" type="range" min="0" max="100" value="80" />
                     <input id="wmOpacityInput" type="number" min="0" max="100" value="80" />
                   </div>
+                </div>
+                <div class="actions block-actions">
+                  <button type="button" class="secondary" data-undo="watermark" disabled aria-label="撤销水印改动">撤销</button>
+                  <button type="button" class="secondary" data-cancel="watermark" aria-label="关闭并清空水印">取消</button>
                 </div>
               </div>
             </div>
