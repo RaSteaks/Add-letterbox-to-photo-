@@ -16,7 +16,7 @@ const customW = document.getElementById("customW");
 const customH = document.getElementById("customH");
 const ratioMeta = document.getElementById("ratioMeta");
 const imageOffset = document.getElementById("imageOffset");
-const offsetMeta = document.getElementById("offsetMeta");
+const imageOffsetValue = document.getElementById("imageOffsetValue");
 const watermarkToggle = document.getElementById("watermarkToggle");
 const watermarkInput = document.getElementById("watermarkInput");
 const watermarkInput2 = document.getElementById("watermarkInput2");
@@ -36,10 +36,27 @@ const wmOpacityRange = document.getElementById("wmOpacityRange");
 const wmOpacityInput = document.getElementById("wmOpacityInput");
 const barColor = document.getElementById("barColor");
 const barOpacity = document.getElementById("barOpacity");
-const styleMeta = document.getElementById("styleMeta");
+const barOpacityValue = document.getElementById("barOpacityValue");
 const downloadBtn = document.getElementById("downloadBtn");
 const barInfo = document.getElementById("barInfo");
 const placeholder = document.getElementById("placeholder");
+const heroRatio = document.getElementById("heroRatio");
+const ratioBadge = document.getElementById("ratioBadge");
+const importBadge = document.getElementById("importBadge");
+const cropBadge = document.getElementById("cropBadge");
+const styleBadge = document.getElementById("styleBadge");
+const frameBadge = document.getElementById("frameBadge");
+const wmBadge = document.getElementById("wmBadge");
+const exportMeta = document.getElementById("exportMeta");
+const dropOverlay = document.getElementById("dropOverlay");
+
+// 折叠分区容器
+const blockImport = document.getElementById("blockImport");
+const blockCrop = document.getElementById("blockCrop");
+const blockFrame = document.getElementById("blockFrame");
+const blockWatermark = document.getElementById("blockWatermark");
+
+const mobileQuery = window.matchMedia("(max-width: 960px)");
 
 // 磨砂相框元素
 const frostedFrameToggle = document.getElementById("frostedFrameToggle");
@@ -104,6 +121,19 @@ const idlePreviewHeight = 420;
 const minPreviewHeight = 260;
 const maxPreviewHeight = 820;
 
+function setBlockCollapsed(block, collapsed) {
+  if (!block) return;
+  block.classList.toggle("collapsed", collapsed);
+  const toggle = block.querySelector(".block-toggle");
+  if (toggle) {
+    toggle.setAttribute("aria-expanded", String(!collapsed));
+  }
+}
+
+function formatRatio(ratio) {
+  return `${Math.round(ratio * 100) / 100}:1`;
+}
+
 function formatBytes(bytes) {
   if (!bytes && bytes !== 0) return "";
   const units = ["B", "KB", "MB", "GB"];
@@ -119,12 +149,14 @@ function formatBytes(bytes) {
 function updateCanvasWrapHeight() {
   const width = canvasWrap.clientWidth;
   if (!width) return;
-  let target = idlePreviewHeight;
+  let target = mobileQuery.matches ? 280 : idlePreviewHeight;
   if (state.image) {
     const ratio = state.image.width / state.image.height;
     target = Math.round(width / ratio);
-    const maxH = Math.min(window.innerHeight * 0.7, maxPreviewHeight);
-    target = Math.max(minPreviewHeight, Math.min(target, maxH));
+    const cap = mobileQuery.matches
+      ? Math.min(window.innerHeight * 0.45, 340)
+      : Math.min(window.innerHeight * 0.7, maxPreviewHeight);
+    target = Math.max(minPreviewHeight, Math.min(target, cap));
   }
   const current = canvasWrap.getBoundingClientRect().height;
   if (Math.abs(current - target) > 1) {
@@ -397,7 +429,8 @@ function draw() {
     ctx.restore();
   }
 
-  if (state.watermarkEnabled && (state.watermarkImage || state.watermarkImage2)) {
+  const hasWmImage = !!(state.watermarkImage || state.watermarkImage2);
+  if (state.watermarkEnabled && (hasWmImage || state.watermarkText)) {
     const scale = fit.w / state.image.width;
     const wmScale = state.watermarkScale / 100;
     const centerX = fit.x + fit.w / 2;
@@ -461,6 +494,15 @@ function draw() {
         const textY = y + drawH + (state.watermarkTextOffset / 100) * fit.h;
         ctx.fillText(state.watermarkText, centerX + offsetX, textY);
       }
+    } else if (state.watermarkText) {
+      // 纯文字水印
+      ctx.globalAlpha = 1;
+      const fontSize = state.watermarkTextSize * scale;
+      ctx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+      ctx.fillStyle = "#ffffff";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(state.watermarkText, centerX + offsetX, centerY + offsetY);
     }
 
     ctx.restore();
@@ -499,28 +541,34 @@ function draw() {
 function updateFileMeta() {
   if (!state.image) {
     fileMeta.textContent = "尚未选择图片";
+    importBadge.textContent = "未选择";
     return;
   }
   fileMeta.textContent = `${state.imageName} · ${state.image.width}×${state.image.height}`;
+  importBadge.textContent = state.imageName;
 }
 
 function updateCropMeta() {
-  if (!state.image) {
-    cropMeta.textContent = "等待图片";
-    return;
-  }
   if (!state.cropEnabled) {
     cropMeta.textContent = "裁切已关闭";
+    cropBadge.textContent = "已关闭";
+    return;
+  }
+  if (!state.image) {
+    cropMeta.textContent = "等待图片";
+    cropBadge.textContent = "等待图片";
     return;
   }
   if (!state.cropRect || !state.fitRect) {
     cropMeta.textContent = "等待图片";
+    cropBadge.textContent = "等待图片";
     return;
   }
   const scale = state.fitRect.w / state.image.width;
   const w = Math.round(state.cropRect.w / scale);
   const h = Math.round(state.cropRect.h / scale);
-  cropMeta.textContent = `裁切区域 ${w}×${h}px`;
+  cropMeta.textContent = `裁切区域 ${w}×${h}px · 双击画布可重置`;
+  cropBadge.textContent = `${w}×${h}`;
 }
 
 function updateRatioMeta() {
@@ -534,16 +582,19 @@ function updateRatioMeta() {
 
 function updateOffsetMeta() {
   const value = Math.round(state.imageOffsetY);
-  offsetMeta.textContent = `偏移 ${value}%`;
+  imageOffsetValue.textContent = `${value}%`;
+  imageOffset.setAttribute("aria-valuenow", String(value));
 }
 
 function updateFrostedFrameMeta() {
-  if (!state.image) {
-    frostedFrameMeta.textContent = "等待图片";
-    return;
-  }
   if (!state.frostedFrameEnabled) {
     frostedFrameMeta.textContent = "磨砂相框已关闭";
+    frameBadge.textContent = "关闭";
+    return;
+  }
+  frameBadge.textContent = "开启";
+  if (!state.image) {
+    frostedFrameMeta.textContent = "等待图片";
     return;
   }
   frostedFrameMeta.textContent = "使用当前图片作为相框背景";
@@ -641,6 +692,7 @@ function generateFrostedFrame() {
   const img = new Image();
   img.onload = () => {
     state.frostedFrameImage = img;
+    updateExportMeta();
     draw();
   };
   img.src = finalCanvas.toDataURL("image/png");
@@ -650,6 +702,7 @@ function setFrostedFrameEnabled(enabled) {
   state.frostedFrameEnabled = enabled;
   updateFrostedFrameControls();
   updateFrostedFrameMeta();
+  updateExportMeta();
   if (enabled && state.image) {
     generateFrostedFrame();
   } else {
@@ -667,10 +720,12 @@ function clamp(value, min, max) {
 function updateWatermarkMeta() {
   if (!state.watermarkEnabled) {
     watermarkMeta.textContent = "水印已关闭";
+    wmBadge.textContent = "关闭";
     return;
   }
-  if (!state.watermarkImage && !state.watermarkImage2) {
-    watermarkMeta.textContent = "未选择水印";
+  if (!state.watermarkImage && !state.watermarkImage2 && !state.watermarkText) {
+    watermarkMeta.textContent = "选择水印图片或输入文字";
+    wmBadge.textContent = "开启";
     return;
   }
   let metaText = "";
@@ -681,7 +736,12 @@ function updateWatermarkMeta() {
     if (metaText) metaText += " | ";
     metaText += `水印2: ${state.watermarkName2} · ${state.watermarkImage2.width}×${state.watermarkImage2.height}`;
   }
+  if (state.watermarkText) {
+    if (metaText) metaText += " | ";
+    metaText += `文字: ${state.watermarkText}`;
+  }
   watermarkMeta.textContent = metaText;
+  wmBadge.textContent = "开启";
 }
 
 function updateWatermarkControls() {
@@ -689,7 +749,8 @@ function updateWatermarkControls() {
   watermarkInput.disabled = !enabled;
   watermarkInput2.disabled = !enabled;
   watermarkText.disabled = !enabled;
-  const adjustDisabled = !enabled || (!state.watermarkImage && !state.watermarkImage2);
+  const hasContent = !!(state.watermarkImage || state.watermarkImage2 || state.watermarkText);
+  const adjustDisabled = !enabled || !hasContent;
   const inputs = [
     wmXRange,
     wmXInput,
@@ -745,7 +806,20 @@ function setWatermarkOpacity(value) {
 }
 
 function updateStyleMeta() {
-  styleMeta.textContent = `不透明度 ${Math.round(state.barOpacity * 100)}%`;
+  const percent = Math.round(state.barOpacity * 100);
+  barOpacityValue.textContent = `${percent}%`;
+  styleBadge.textContent = `${state.barColor} · ${percent}%`;
+}
+
+function updateExportMeta() {
+  if (!state.image) {
+    exportMeta.textContent = "导入图片后可导出";
+    return;
+  }
+  const framed = state.frostedFrameEnabled && state.frostedFrameImage;
+  const w = framed ? state.frostedFrameImage.width : state.image.width;
+  const h = framed ? state.frostedFrameImage.height : state.image.height;
+  exportMeta.textContent = `导出 ${w} × ${h}px · PNG`;
 }
 
 function updateBarInfo() {
@@ -790,7 +864,10 @@ function handleImage(file) {
     updateCropMeta();
     updateRatioMeta();
     updateBarInfo();
+    updateExportMeta();
     setControlsEnabled(true);
+    // 已导入图片，收起导入区减少干扰
+    setBlockCollapsed(blockImport, true);
     resizeCanvas();
   };
   img.src = url;
@@ -857,6 +934,7 @@ function applyCrop() {
     updateCropMeta();
     updateRatioMeta();
     updateBarInfo();
+    updateExportMeta();
     resizeCanvas();
   };
   newImg.src = offscreen.toDataURL("image/png");
@@ -918,6 +996,9 @@ function updateBarRatio() {
     ratio = parseFloat(ratioSelect.value);
   }
   state.barRatio = ratio;
+  const label = formatRatio(ratio);
+  ratioBadge.textContent = label;
+  heroRatio.textContent = label;
   updateBarInfo();
   draw();
 }
@@ -967,7 +1048,8 @@ function downloadImage() {
     }
   }
 
-  if (state.watermarkEnabled && (state.watermarkImage || state.watermarkImage2)) {
+  const hasWmImage = !!(state.watermarkImage || state.watermarkImage2);
+  if (state.watermarkEnabled && (hasWmImage || state.watermarkText)) {
     const baseWidth = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.width : outputWidth;
     const baseHeight = state.frostedFrameEnabled && state.frostedFrameImage ? state.image.height : outputHeight;
     const offsetX = state.frostedFrameEnabled && state.frostedFrameImage ? parseInt(frameWidth.value, 10) : 0;
@@ -1031,6 +1113,15 @@ function downloadImage() {
         const textY = y + drawWMH + (state.watermarkTextOffset / 100) * baseHeight;
         outCtx.fillText(state.watermarkText, centerX + posOffsetX, textY);
       }
+    } else if (state.watermarkText) {
+      // 纯文字水印
+      outCtx.globalAlpha = 1;
+      const fontSize = state.watermarkTextSize;
+      outCtx.font = `${fontSize}px "Space Grotesk", sans-serif`;
+      outCtx.fillStyle = "#ffffff";
+      outCtx.textAlign = "center";
+      outCtx.textBaseline = "middle";
+      outCtx.fillText(state.watermarkText, centerX + posOffsetX, centerY + posOffsetY);
     }
 
     outCtx.restore();
@@ -1134,6 +1225,7 @@ function onPointerUp(event) {
 
 function onDrop(event) {
   event.preventDefault();
+  event.stopPropagation();
   dropzone.classList.remove("active");
   const file = event.dataTransfer.files[0];
   handleImage(file);
@@ -1153,8 +1245,57 @@ fileInput.addEventListener("change", (event) => {
   handleImage(file);
 });
 
+// 分区折叠：点击标题展开/收起
+document.querySelectorAll(".block-toggle").forEach((toggle) => {
+  toggle.addEventListener("click", () => {
+    const block = toggle.closest(".block");
+    setBlockCollapsed(block, !block.classList.contains("collapsed"));
+  });
+});
+
+// 拖放区键盘可达：Enter / 空格触发文件选择
+dropzone.addEventListener("keydown", (event) => {
+  if (event.key === "Enter" || event.key === " ") {
+    event.preventDefault();
+    fileInput.click();
+  }
+});
+
+// 全局拖放：图片可拖到页面任意位置导入
+window.addEventListener("dragover", (event) => {
+  event.preventDefault();
+});
+
+window.addEventListener("drop", (event) => {
+  event.preventDefault();
+  dropOverlay.classList.remove("active");
+  const file = event.dataTransfer && event.dataTransfer.files[0];
+  if (file) handleImage(file);
+});
+
+document.addEventListener("dragenter", (event) => {
+  const types = event.dataTransfer ? Array.from(event.dataTransfer.types || []) : [];
+  if (types.includes("Files")) {
+    dropOverlay.classList.add("active");
+  }
+});
+
+document.addEventListener("dragleave", (event) => {
+  if (!event.relatedTarget) {
+    dropOverlay.classList.remove("active");
+  }
+});
+
+// 双击画布重置裁切框
+canvas.addEventListener("dblclick", () => {
+  if (state.image && state.cropEnabled) {
+    resetCrop();
+  }
+});
+
 cropToggle.addEventListener("change", (event) => {
   setCropEnabled(event.target.checked);
+  setBlockCollapsed(blockCrop, !event.target.checked);
 });
 
 cropSelect.addEventListener("change", updateCropAspect);
@@ -1173,6 +1314,7 @@ imageOffset.addEventListener("input", (event) => {
 
 watermarkToggle.addEventListener("change", (event) => {
   setWatermarkEnabled(event.target.checked);
+  setBlockCollapsed(blockWatermark, !event.target.checked);
 });
 
 watermarkInput.addEventListener("change", (event) => {
@@ -1187,6 +1329,8 @@ watermarkInput2.addEventListener("change", (event) => {
 
 watermarkText.addEventListener("input", () => {
   state.watermarkText = watermarkText.value;
+  updateWatermarkControls();
+  updateWatermarkMeta();
   draw();
 });
 
@@ -1264,6 +1408,7 @@ wmOpacityInput.addEventListener("input", (event) => {
 
 barColor.addEventListener("input", (event) => {
   state.barColor = event.target.value;
+  updateStyleMeta();
   draw();
 });
 
@@ -1283,7 +1428,13 @@ applyCropBtn.addEventListener("mouseenter", () => {
 
 applyCropBtn.addEventListener("mouseleave", updateCropMeta);
 
-downloadBtn.addEventListener("click", downloadImage);
+downloadBtn.addEventListener("click", () => {
+  downloadImage();
+  downloadBtn.textContent = "已导出 ✓";
+  window.setTimeout(() => {
+    downloadBtn.textContent = "下载 PNG";
+  }, 1600);
+});
 
 dropzone.addEventListener("drop", onDrop);
 dropzone.addEventListener("dragover", onDragOver);
@@ -1296,6 +1447,7 @@ window.addEventListener("pointerup", onPointerUp);
 // 磨砂相框事件监听
 frostedFrameToggle.addEventListener("change", (event) => {
   setFrostedFrameEnabled(event.target.checked);
+  setBlockCollapsed(blockFrame, !event.target.checked);
 });
 
 frameWidth.addEventListener("input", (event) => {
@@ -1341,6 +1493,11 @@ frameBorderRadius.addEventListener("input", (event) => {
 const resizeObserver = new ResizeObserver(resizeCanvas);
 resizeObserver.observe(canvas.parentElement);
 
+// 断点切换时重算预览高度
+if (typeof mobileQuery.addEventListener === "function") {
+  mobileQuery.addEventListener("change", resizeCanvas);
+}
+
 setCropEnabled(cropToggle.checked);
 updateOffsetMeta();
 setWatermarkOffsetX(parseInt(wmXRange.value, 10));
@@ -1353,6 +1510,7 @@ updateBarRatio();
 updateCropAspect();
 updateFrostedFrameMeta();
 updateFrostedFrameControls();
+updateExportMeta();
 frameWidthValue.textContent = `${frameWidth.value}px`;
 frameBlurValue.textContent = `${frameBlur.value}px`;
 frameOpacityValue.textContent = `${frameOpacity.value}%`;
