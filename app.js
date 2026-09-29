@@ -77,6 +77,7 @@ const frostedFrameMeta = document.getElementById("frostedFrameMeta");
 const state = {
   image: null,
   imageName: "",
+  imageType: "",
   cropEnabled: true,
   cropAspect: null,
   cropRect: null,
@@ -811,6 +812,56 @@ function updateStyleMeta() {
   styleBadge.textContent = `${state.barColor} · ${percent}%`;
 }
 
+// 探测浏览器能否将 canvas 编码为目标格式（失败时 toDataURL 会回退为 PNG）
+const mimeSupportCache = new Map();
+function supportsMime(mime) {
+  if (!mime) return false;
+  if (mimeSupportCache.has(mime)) return mimeSupportCache.get(mime);
+  const probe = document.createElement("canvas");
+  probe.width = 1;
+  probe.height = 1;
+  const supported = probe.toDataURL(mime).startsWith(`data:${mime}`);
+  mimeSupportCache.set(mime, supported);
+  return supported;
+}
+
+// 导出格式跟随导入格式；浏览器无法编码时回退 PNG
+function getExportMime() {
+  const type = state.imageType || "image/png";
+  return supportsMime(type) ? type : "image/png";
+}
+
+function formatLabel(mime) {
+  const labels = { "image/jpeg": "JPG", "image/png": "PNG", "image/webp": "WEBP" };
+  return labels[mime] || mime.replace("image/", "").toUpperCase();
+}
+
+function extensionToMime(name) {
+  const ext = (name.match(/\.([^.]+)$/) || [])[1] || "";
+  const map = {
+    jpg: "image/jpeg",
+    jpeg: "image/jpeg",
+    jpe: "image/jpeg",
+    jfif: "image/jpeg",
+    png: "image/png",
+    webp: "image/webp",
+    gif: "image/gif",
+    bmp: "image/bmp",
+    avif: "image/avif",
+  };
+  return map[ext.toLowerCase()] || "image/png";
+}
+
+// 格式未变时保留原文件的扩展名写法，回退时按导出格式取名
+function exportExtension(mime) {
+  if (state.imageType === mime && state.imageName) {
+    const ext = (state.imageName.match(/\.([^.]+)$/) || [])[1];
+    if (ext) return ext;
+  }
+  const exts = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
+  return exts[mime] || "png";
+}
+
 function updateExportMeta() {
   if (!state.image) {
     exportMeta.textContent = "导入图片后可导出";
@@ -819,7 +870,8 @@ function updateExportMeta() {
   const framed = state.frostedFrameEnabled && state.frostedFrameImage;
   const w = framed ? state.frostedFrameImage.width : state.image.width;
   const h = framed ? state.frostedFrameImage.height : state.image.height;
-  exportMeta.textContent = `导出 ${w} × ${h}px · PNG`;
+  exportMeta.textContent = `导出 ${w} × ${h}px · ${formatLabel(getExportMime())}`;
+  downloadBtn.textContent = `下载 ${formatLabel(getExportMime())}`;
 }
 
 function updateBarInfo() {
@@ -854,6 +906,7 @@ function handleImage(file) {
     URL.revokeObjectURL(url);
     state.image = img;
     state.imageName = file.name;
+    state.imageType = file.type || extensionToMime(file.name);
     updateCanvasWrapHeight();
     if (state.cropEnabled) {
       initCropRect();
@@ -927,7 +980,7 @@ function applyCrop() {
   const newImg = new Image();
   newImg.onload = () => {
     state.image = newImg;
-    state.imageName = `${state.imageName.replace(/\.[^.]+$/, "")}-crop.png`;
+    state.imageName = `${state.imageName.replace(/\.[^.]+$/, "")}-crop`;
     updateCanvasWrapHeight();
     initCropRect();
     updateFileMeta();
@@ -1006,6 +1059,8 @@ function updateBarRatio() {
 function downloadImage() {
   if (!state.image) return;
 
+  const mime = getExportMime();
+
   let output;
   let outputWidth;
   let outputHeight;
@@ -1023,6 +1078,12 @@ function downloadImage() {
   output.width = outputWidth;
   output.height = outputHeight;
   const outCtx = output.getContext("2d");
+
+  // JPEG 没有透明通道，先铺白底避免半透明区域（如遮幅）变黑
+  if (mime === "image/jpeg") {
+    outCtx.fillStyle = "#ffffff";
+    outCtx.fillRect(0, 0, output.width, output.height);
+  }
 
   // 如果启用了磨砂相框，先绘制相框
   if (state.frostedFrameEnabled && state.frostedFrameImage) {
@@ -1129,8 +1190,8 @@ function downloadImage() {
 
   const link = document.createElement("a");
   const suffix = state.frostedFrameEnabled ? "-frosted" : "-letterbox";
-  link.download = `${state.imageName.replace(/\.[^.]+$/, "")}${suffix}.png`;
-  link.href = output.toDataURL("image/png");
+  link.download = `${state.imageName.replace(/\.[^.]+$/, "")}${suffix}.${exportExtension(mime)}`;
+  link.href = output.toDataURL(mime, mime === "image/jpeg" || mime === "image/webp" ? 0.92 : undefined);
   link.click();
 }
 
@@ -1432,7 +1493,7 @@ downloadBtn.addEventListener("click", () => {
   downloadImage();
   downloadBtn.textContent = "已导出 ✓";
   window.setTimeout(() => {
-    downloadBtn.textContent = "下载 PNG";
+    downloadBtn.textContent = `下载 ${formatLabel(getExportMime())}`;
   }, 1600);
 });
 
